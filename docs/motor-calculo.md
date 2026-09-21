@@ -1,0 +1,273 @@
+# Motor de Cálculo — Lógica de Negocio y Pseudocódigo
+
+> Implementación de referencia: Ley de Contrato de Trabajo (LCT, Ley 20.744) y leyes complementarias (25.323, 25.345, 25.877). **Este documento es una guía de diseño técnico, no asesoramiento legal**: los porcentajes, topes y plazos deben validarse con un asesor laboral antes de llevar el motor a producción, y deben mantenerse versionados porque cambian por CCT, decreto o jurisprudencia (ej. fallo "Vizzoti" sobre el tope del art. 245).
+
+## 1. Principio de diseño: parámetros normativos versionados
+
+Ninguna fórmula debe tener un número "hardcodeado" que dependa de la ley o el convenio. Todo valor variable se obtiene de una tabla de parámetros vigente **a la fecha de extinción del caso**, no a la fecha de cálculo:
+
+```ts
+interface ParametrosNormativos {
+  convenioColectivo: string;
+  vigenciaDesde: Date;
+  vigenciaHasta: Date | null;
+  topeIndemnizatorio: number;       // 3x el promedio de convenio (art. 245 LCT)
+  divisorSAC: number;               // 12 (histórico) — configurable por si cambia
+  divisorVacaciones: number;        // 25 (LCT, para mensualizados)
+  diasVacacionesPorAntiguedad: {    // art. 150 LCT
+    hasta5Anios: number;            // 14
+    de5a10Anios: number;            // 21
+    de10a20Anios: number;           // 28
+    masDe20Anios: number;           // 35
+  };
+}
+
+function obtenerParametrosVigentes(convenio: string, fecha: Date): ParametrosNormativos {
+  // busca en la tabla de parámetros el registro de `convenio`
+  // cuya vigencia incluye `fecha`; error si no hay uno cargado
+}
+```
+
+## 2. Variables base requeridas (input común a las fórmulas)
+
+```ts
+interface VariablesCaso {
+  fechaIngreso: Date;
+  fechaEgreso: Date;
+  tipoExtincion: 'despido_sin_causa' | 'despido_con_causa' | 'renuncia'
+               | 'mutuo_acuerdo' | 'vencimiento_contrato' | 'fallecimiento';
+  mejorRemuneracionMensualNormalYHabitual: number;  // "MRMNH", base del art. 245
+  sueldoMensualActual: number;                       // para SAC/vacaciones si difiere de MRMNH
+  diasVacacionesGozadosEnElAnio: number;
+  preavisoOtorgado: boolean;
+  intimacionPagoCursada: boolean;      // para multa art. 2 ley 25.323
+  certificadosEntregados: boolean;     // para multa art. 80 LCT
+  registracionDeficiente: boolean;     // para multa art. 1 ley 25.323
+  convenioColectivo: string;
+}
+```
+
+## 3. Rubros aplicables según tipo de extinción
+
+El motor no calcula "todos los rubros siempre": primero resuelve qué rubros corresponden al `tipo_extincion` del caso.
+
+| Rubro | despido_sin_causa | despido_con_causa | renuncia | mutuo_acuerdo (art. 241) | vencimiento_contrato |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Indemnización antigüedad | ✅ | ❌ | ❌ | ❌ (salvo pacto) | ❌ |
+| Preaviso / sustitutiva | ✅ | ❌ | ❌ (a cargo del trabajador si no preavisa) | ❌ | ❌ |
+| Integración mes de despido | ✅ | ❌ | ❌ | ❌ | ❌ |
+| SAC proporcional | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Vacaciones no gozadas | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SAC s/vacaciones no gozadas | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Multa art. 2 ley 25.323 | ✅ (si hay intimación previa incumplida) | ❌ | ❌ | ❌ | ❌ |
+| Multa art. 1 ley 25.323 | ✅ (si `registracionDeficiente`) | ✅ | ✅ | ✅ | ✅ |
+| Multa art. 80 LCT | ✅ (si no entregó certificados tras intimación) | ✅ | ✅ | ✅ | ✅ |
+
+```ts
+function rubrosAplicables(tipoExtincion: string): string[] {
+  const base = ['SAC_PROP', 'VAC_NO_GOZADAS', 'SAC_S_VAC'];
+  if (tipoExtincion === 'despido_sin_causa') {
+    return [...base, 'IND_ANTIGUEDAD', 'PREAVISO', 'INTEGRACION_MES',
+            'MULTA_ART2_25323', 'MULTA_ART1_25323', 'MULTA_ART80'];
+  }
+  return [...base, 'MULTA_ART1_25323', 'MULTA_ART80']; // condicionadas a flags del caso
+}
+```
+
+## 4. Fórmulas
+
+### 4.1 Indemnización por antigüedad (art. 245 LCT)
+
+```
+antigüedadEnAnios = añosCompletos(fechaIngreso, fechaEgreso)
+                     + (fracciónMayorA3Meses ? 1 : 0)   // fracción > 3 meses se computa como año completo
+
+baseCalculo = min(MRMNH, topeIndemnizatorio)
+
+// piso: si el tope hace que la indemnización sea menor a un mes de sueldo, se usa un mes de sueldo
+// (doctrina posterior a "Vizzoti", que además limita la quita del tope al 33% del MRMNH real)
+if (baseCalculo < MRMNH * 0.67) {
+    baseCalculo = MRMNH * 0.67
+}
+
+indemnizacionAntiguedad = baseCalculo * max(antigüedadEnAnios, 1)  // mínimo 1 mes de antigüedad
+```
+
+```ts
+function calcularIndemnizacionAntiguedad(v: VariablesCaso, p: ParametrosNormativos): RubroCalculado {
+  const anios = aniosConFraccion(v.fechaIngreso, v.fechaEgreso);
+  let base = Math.min(v.mejorRemuneracionMensualNormalYHabitual, p.topeIndemnizatorio);
+  const piso = v.mejorRemuneracionMensualNormalYHabitual * 0.67; // tope "Vizzoti"
+  if (base < piso) base = piso;
+  const monto = base * Math.max(anios, 1);
+  return { rubro: 'IND_ANTIGUEDAD', monto, detalle: { anios, base, piso, tope: p.topeIndemnizatorio } };
+}
+```
+
+### 4.2 Preaviso / indemnización sustitutiva (arts. 231/232 LCT)
+
+```
+si preavisoOtorgado == true:
+    montoPreaviso = 0   // ya fue cumplido en especie, no corresponde indemnizar
+si antigüedad < 5 años:
+    mesesPreaviso = 1
+sino:
+    mesesPreaviso = 2
+
+montoPreaviso = mesesPreaviso * MRMNH
+montoPreaviso += SAC sobre ese monto (montoPreaviso / 12)   // el preaviso "se integra" con SAC
+```
+
+### 4.3 Integración del mes de despido (art. 233 LCT)
+
+```
+si el despido no ocurre el último día calendario del mes:
+    diasRestantesDelMes = diasEnElMes(fechaEgreso) - diaDelMes(fechaEgreso)
+    integracionMes = (MRMNH / diasEnElMes(fechaEgreso)) * diasRestantesDelMes
+    integracionMes += SAC sobre ese monto (integracionMes / 12)
+sino:
+    integracionMes = 0
+```
+
+### 4.4 SAC proporcional (aguinaldo, Ley 23.041)
+
+```
+semestre = obtenerSemestre(fechaEgreso)               // 1/1–30/6 o 1/7–31/12
+diasTrabajadosEnSemestre = diasEntre(inicioSemestre o fechaIngreso (lo que sea posterior), fechaEgreso)
+diasTotalesSemestre = diasEntre(inicioSemestre, finSemestre)
+
+sacProporcional = (mejorRemuneracionDelSemestre / 2) * (diasTrabajadosEnSemestre / diasTotalesSemestre)
+```
+
+```ts
+function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
+  const { inicio, fin } = semestreDe(v.fechaEgreso);
+  const desde = maxFecha(inicio, v.fechaIngreso);
+  const diasTrabajados = diasEntre(desde, v.fechaEgreso) + 1;
+  const diasTotales = diasEntre(inicio, fin) + 1;
+  const monto = (v.mejorRemuneracionMensualNormalYHabitual / 2) * (diasTrabajados / diasTotales);
+  return { rubro: 'SAC_PROP', monto, detalle: { diasTrabajados, diasTotales } };
+}
+```
+
+### 4.5 Vacaciones no gozadas (art. 150 y 156 LCT)
+
+```
+diasPorAntiguedad = segunTablaAntiguedad(antigüedadEnAnios, parametros.diasVacacionesPorAntiguedad)
+
+// proporcional a meses trabajados en el año calendario de la extinción
+mesesTrabajadosEnElAnio = mesesCompletos(inicioDelAnio o fechaIngreso, fechaEgreso)
+diasProporcionales = round(diasPorAntiguedad / 12 * mesesTrabajadosEnElAnio)
+diasNoGozados = diasProporcionales - diasVacacionesGozadosEnElAnio
+
+valorDia = sueldoMensualActual / parametros.divisorVacaciones   // divisor 25, LCT
+
+vacacionesNoGozadas = max(diasNoGozados, 0) * valorDia
+```
+
+### 4.6 SAC sobre vacaciones no gozadas
+
+```
+// las vacaciones no gozadas integran la base de cálculo del aguinaldo
+sacSobreVacaciones = vacacionesNoGozadas / 12
+```
+
+### 4.7 Multa art. 2 Ley 25.323 (falta de pago en término)
+
+```
+si tipoExtincion == 'despido_sin_causa'
+   y intimacionPagoCursada == true
+   y la empresa no pagó la indemnización dentro del plazo legal:
+       multaArt2 = (indemnizacionAntiguedad + montoPreaviso + integracionMes) * 0.5
+sino:
+    multaArt2 = 0
+```
+
+### 4.8 Multa art. 1 Ley 25.323 (registración deficiente o ausente)
+
+```
+si registracionDeficiente == true:
+    multaArt1 = indemnizacionAntiguedad * 1.0   // duplica la indemnización por antigüedad
+sino:
+    multaArt1 = 0
+```
+
+### 4.9 Multa art. 80 LCT (falta de entrega de certificados de trabajo)
+
+```
+si certificadosEntregados == false
+   y hanTranscurrido30DiasHabilesDesdeExtincion(fechaEgreso)
+   y intimacionCertificadosCursada == true:
+       multaArt80 = MRMNH * 3
+sino:
+    multaArt80 = 0
+```
+
+## 5. Orquestador del motor
+
+```ts
+function calcularLiquidacionSistema(caso: Caso, variables: VariablesCaso): LiquidacionCalculada {
+  const parametros = obtenerParametrosVigentes(variables.convenioColectivo, caso.fechaExtincion);
+  const rubrosACalcular = rubrosAplicables(caso.tipoExtincion);
+  const resultados: RubroCalculado[] = [];
+
+  for (const codigoRubro of rubrosACalcular) {
+    const calculadora = REGISTRO_CALCULADORAS[codigoRubro]; // mapa código -> función pura
+    const resultado = calculadora(variables, parametros);
+    if (resultado.monto > 0) resultados.push(resultado);
+  }
+
+  return {
+    casoId: caso.id,
+    origen: 'sistema',
+    fechaCalculo: hoy(),
+    rubros: resultados,
+    total: sumar(resultados.map(r => r.monto)),
+  };
+}
+```
+
+## 6. Del cálculo a los hallazgos (módulo de comparación)
+
+```ts
+function generarHallazgos(liquidacionEmpresa: Liquidacion, liquidacionSistema: LiquidacionCalculada): Hallazgo[] {
+  const rubrosUnion = unionDeRubros(liquidacionEmpresa, liquidacionSistema);
+
+  return rubrosUnion.map(rubro => {
+    const declarado = montoDeclaradoPara(rubro, liquidacionEmpresa) ?? 0;
+    const calculado = montoCalculadoPara(rubro, liquidacionSistema) ?? 0;
+    const diferencia = calculado - declarado;
+    const porcentaje = declarado !== 0 ? (diferencia / declarado) * 100 : (calculado > 0 ? 100 : 0);
+
+    return {
+      rubro,
+      montoDeclarado: declarado,
+      montoCalculado: calculado,
+      diferencia,
+      porcentajeDiferencia: porcentaje,
+      severidad: clasificarSeveridad(diferencia, porcentaje),
+      estado: 'pendiente',
+    };
+  });
+}
+
+function clasificarSeveridad(diferencia: number, porcentaje: number): 'alta' | 'media' | 'baja' {
+  const abs = Math.abs(porcentaje);
+  if (abs > 10 || Math.abs(diferencia) > UMBRAL_MONTO_ALTA) return 'alta';
+  if (abs > 3) return 'media';
+  return 'baja';
+}
+```
+
+## 7. Validación del motor
+
+Cada función de cálculo (`calcularIndemnizacionAntiguedad`, `calcularSACProporcional`, etc.) debe:
+- Ser **pura** (mismo input → mismo output, sin acceso a DB/red).
+- Tener una suite de tests con casos de ejemplo verificados manualmente por un asesor laboral (incluyendo casos límite: antigüedad menor a 3 meses, despido el último día del mes, sueldo por encima del tope convencional, trabajador con vacaciones ya gozadas parcialmente).
+- Versionarse junto con los `ParametrosNormativos`: un cambio de tope o de días de vacaciones no debe requerir tocar la función, solo cargar un nuevo registro de parámetros con su rango de vigencia.
+
+## 8. Próximos pasos
+
+- Definir el catálogo completo de `ParametrosNormativos` por convenio colectivo relevante para los clientes iniciales.
+- Sumar reglas específicas de agravantes (ej. art. 178 LCT — despido por embarazo, art. 182 — despido por matrimonio) como rubros opcionales activables por flags del caso, siguiendo el mismo patrón de `REGISTRO_CALCULADORAS`.
+- Definir `UMBRAL_MONTO_ALTA` y los cortes de severidad con el equipo legal (valor fijo vs. relativo al sueldo del empleado).

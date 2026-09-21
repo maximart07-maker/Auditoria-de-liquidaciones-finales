@@ -8,13 +8,15 @@ Permite gestionar uno o varios clientes en simultáneo, desde una liquidación p
 
 - [`docs/arquitectura.md`](docs/arquitectura.md) — Propuesta de arquitectura general y stack tecnológico.
 - [`docs/modelo-datos.md`](docs/modelo-datos.md) — Modelo de datos (entidades, relaciones, DDL).
+- [`docs/flujo-ux.md`](docs/flujo-ux.md) — Flujo de usuario (UX/UI), de la carga de documentos al informe de auditoría.
+- [`docs/motor-calculo.md`](docs/motor-calculo.md) — Lógica de negocio y pseudocódigo de las fórmulas de auditoría.
 
-> Este repositorio está en etapa de diseño. La documentación se irá completando con el flujo UX, la lógica de cálculo y el código base a medida que se validen las decisiones de arquitectura.
+> Este repositorio está en etapa de diseño. La documentación se irá completando a medida que se valide el código base.
 
 ## Estado
 
 - [x] Propuesta de arquitectura general
 - [x] Modelo de datos inicial
-- [ ] Flujo de usuario (UX/UI)
-- [ ] Motor de cálculo (lógica de negocio y pseudocódigo de fórmulas)
+- [x] Flujo de usuario (UX/UI)
+- [x] Motor de cálculo (lógica de negocio y pseudocódigo de fórmulas)
 - [ ] Scaffolding de backend/frontend
