@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2021",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "incremental": true
+  }
+}

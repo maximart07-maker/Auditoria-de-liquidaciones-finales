@@ -11,12 +11,53 @@ Permite gestionar uno o varios clientes en simultáneo, desde una liquidación p
 - [`docs/flujo-ux.md`](docs/flujo-ux.md) — Flujo de usuario (UX/UI), de la carga de documentos al informe de auditoría.
 - [`docs/motor-calculo.md`](docs/motor-calculo.md) — Lógica de negocio y pseudocódigo de las fórmulas de auditoría.
 
-> Este repositorio está en etapa de diseño. La documentación se irá completando a medida que se valide el código base.
-
 ## Estado
 
 - [x] Propuesta de arquitectura general
 - [x] Modelo de datos inicial
 - [x] Flujo de usuario (UX/UI)
 - [x] Motor de cálculo (lógica de negocio y pseudocódigo de fórmulas)
-- [ ] Scaffolding de backend/frontend
+- [x] Scaffolding de backend/frontend
+
+## Estructura del monorepo
+
+```
+apps/
+  api/    → Backend NestJS + Prisma (PostgreSQL)
+  web/    → Frontend Next.js (App Router) + Tailwind
+packages/
+  motor-calculo/  → Lógica pura de cálculo/auditoría (@audit/motor-calculo), sin dependencias de framework
+```
+
+`@audit/motor-calculo` implementa las fórmulas descriptas en `docs/motor-calculo.md` (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas, multas) con 18 tests unitarios (`npm run test --workspace packages/motor-calculo`). El backend lo consume en `apps/api/src/auditorias` para generar la `Liquidacion` de origen "sistema" y los `Hallazgo` de cada auditoría.
+
+## Puesta en marcha local
+
+```bash
+# 1. Instalar dependencias de todo el monorepo
+npm install
+
+# 2. Levantar Postgres/Redis/MinIO
+docker compose up -d
+
+# 3. Configurar variables de entorno
+cp .env.example apps/api/.env
+cp .env.example apps/web/.env.local   # solo necesita NEXT_PUBLIC_API_URL
+
+# 4. Aplicar el schema de Prisma y cargar el catálogo de rubros
+npm run prisma:migrate --workspace apps/api
+npm run prisma:seed --workspace apps/api
+
+# 5. Levantar backend y frontend (en dos terminales)
+npm run dev:api   # http://localhost:3001
+npm run dev:web   # http://localhost:3000
+```
+
+Con la API sin datos, `/` mostrará "sin clientes cargados" — se puede crear el primer cliente con `POST /clientes` (ver `apps/api/src/clientes`).
+
+### Pendiente de implementación (fuera del alcance del scaffolding)
+
+- Worker de OCR/parsing (BullMQ + Textract/Document Intelligence) que procese los `Documento` en estado `pendiente`.
+- Generación real de informes PDF (`Informe`).
+- Autenticación/RBAC (JWT) — los endpoints hoy no están protegidos.
+- Import masivo de nómina (CSV/Excel) para alta de `Lote`.

@@ -1,0 +1,21 @@
+{
+  "name": "auditoria-liquidaciones-finales",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace packages/motor-calculo && npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
