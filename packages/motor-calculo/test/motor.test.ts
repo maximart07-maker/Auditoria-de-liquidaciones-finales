@@ -27,6 +27,27 @@ describe('calcularLiquidacionSistema', () => {
     expect(codigos).toContain('SAC_PROP');
   });
 
+  it('incluye SAC_S_VAC_ANTERIORES cuando hay días de vacaciones pendientes de períodos anteriores', () => {
+    const v = variablesBase({ diasVacacionesPendientesPeriodosAnteriores: 10, sueldoMensualActual: 100_000 });
+
+    const liquidacion = calcularLiquidacionSistema(v);
+    const codigos = liquidacion.rubros.map((r) => r.rubro);
+    const vacAnteriores = liquidacion.rubros.find((r) => r.rubro === 'VAC_NO_GOZADAS_ANTERIORES')!;
+    const sacAnteriores = liquidacion.rubros.find((r) => r.rubro === 'SAC_S_VAC_ANTERIORES')!;
+
+    expect(codigos).toContain('VAC_NO_GOZADAS_ANTERIORES');
+    expect(codigos).toContain('SAC_S_VAC_ANTERIORES');
+    expect(sacAnteriores.monto).toBeCloseTo(vacAnteriores.monto / 12, 2);
+  });
+
+  it('no incluye SAC_S_VAC_ANTERIORES cuando no hay días pendientes de períodos anteriores', () => {
+    const v = variablesBase({ diasVacacionesPendientesPeriodosAnteriores: 0 });
+
+    const liquidacion = calcularLiquidacionSistema(v);
+
+    expect(liquidacion.rubros.map((r) => r.rubro)).not.toContain('SAC_S_VAC_ANTERIORES');
+  });
+
   it('lanza un error si no hay parámetros normativos cargados para el convenio', () => {
     const v = variablesBase({ convenioColectivo: 'CONVENIO_INEXISTENTE', fechaEgreso: utc(2023, 5, 15) });
 

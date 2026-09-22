@@ -41,14 +41,18 @@ export function calcularLiquidacionSistema(
   const vacacionesNoGozadas = calcularVacacionesNoGozadas(variables, parametros);
   if (vacacionesNoGozadas.monto > 0) rubros.push(vacacionesNoGozadas);
 
-  const sacSobreVacaciones = calcularSACSobreVacaciones(vacacionesNoGozadas);
+  const sacSobreVacaciones = calcularSACSobreVacaciones(vacacionesNoGozadas, 'SAC_S_VAC');
   if (sacSobreVacaciones.monto > 0) rubros.push(sacSobreVacaciones);
 
   // Control aparte del proporcional del año en curso: días de vacaciones adeudados
-  // de años anteriores, nunca otorgados ni compensados. No devenga SAC adicional
-  // (a diferencia de vacacionesNoGozadas del año en curso).
+  // de años anteriores, nunca otorgados ni compensados. Devenga SAC con el mismo
+  // criterio que vacacionesNoGozadas, en su propio rubro para no mezclar ambos
+  // controles en la auditoría.
   const vacacionesPeriodosAnteriores = calcularVacacionesPeriodosAnteriores(variables, parametros);
   if (vacacionesPeriodosAnteriores.monto > 0) rubros.push(vacacionesPeriodosAnteriores);
+
+  const sacSobreVacacionesAnteriores = calcularSACSobreVacaciones(vacacionesPeriodosAnteriores, 'SAC_S_VAC_ANTERIORES');
+  if (sacSobreVacacionesAnteriores.monto > 0) rubros.push(sacSobreVacacionesAnteriores);
 
   const total = rubros.reduce((acumulado, rubro) => acumulado + rubro.monto, 0);
 

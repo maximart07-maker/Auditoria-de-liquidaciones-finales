@@ -12,6 +12,7 @@ const RUBROS = [
   { codigo: 'VAC_NO_GOZADAS', nombre: 'Vacaciones no gozadas', baseLegal: 'Arts. 150 y 156 LCT' },
   { codigo: 'VAC_NO_GOZADAS_ANTERIORES', nombre: 'Vacaciones no gozadas de períodos anteriores', baseLegal: 'Art. 156 LCT' },
   { codigo: 'SAC_S_VAC', nombre: 'SAC sobre vacaciones no gozadas', baseLegal: 'Arts. 150 y 156 LCT' },
+  { codigo: 'SAC_S_VAC_ANTERIORES', nombre: 'SAC sobre vacaciones no gozadas de períodos anteriores', baseLegal: 'Art. 156 LCT' },
 ];
 
 /** Códigos de rubro dados de baja del motor de cálculo (ver

@@ -57,13 +57,14 @@ El motor no calcula "todos los rubros siempre": primero resuelve qué rubros cor
 | SAC proporcional | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Vacaciones no gozadas (año en curso) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Vacaciones no gozadas de períodos anteriores | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SAC s/vacaciones no gozadas | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SAC s/vacaciones no gozadas (año en curso) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SAC s/vacaciones no gozadas de períodos anteriores | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 > Las multas de la Ley 25.323 (arts. 1 y 2) y del art. 80 LCT se dieron de baja del motor de cálculo — ver nota al final de §4.
 
 ```ts
 function rubrosAplicables(tipoExtincion: string): string[] {
-  const base = ['SAC_PROP', 'VAC_NO_GOZADAS', 'VAC_NO_GOZADAS_ANTERIORES', 'SAC_S_VAC'];
+  const base = ['SAC_PROP', 'VAC_NO_GOZADAS', 'VAC_NO_GOZADAS_ANTERIORES', 'SAC_S_VAC', 'SAC_S_VAC_ANTERIORES'];
   if (tipoExtincion === 'despido_sin_causa') {
     return [...base, 'IND_ANTIGUEDAD', 'PREAVISO', 'INTEGRACION_MES'];
   }
@@ -175,7 +176,7 @@ vacacionesNoGozadas = max(diasNoGozados, 0) * valorDia
 
 ### 4.6 Vacaciones no gozadas de períodos anteriores (art. 156 LCT)
 
-Control **aparte** del proporcional del año en curso (§4.5): cubre días de vacaciones de años anteriores que la empresa nunca otorgó ni compensó. Se valúan al mismo valor día, pero el dato de días pendientes lo carga el auditor (manual, o autocompletado a partir de lo liquidado en recibos de sueldo anteriores) — el motor no aplica prescripción (art. 256 LCT) sobre esos días, confía en que ya vienen depurados. Es opcional: si no se cargó ningún valor para el caso, se asume 0 (sin deuda conocida) y no bloquea la auditoría.
+Control **aparte** del proporcional del año en curso (§4.5): cubre días de vacaciones de años anteriores que la empresa nunca otorgó ni compensó. Se valúan al mismo valor día, pero el dato de días pendientes lo carga el auditor (manual, o autocompletado a partir de lo liquidado en recibos de sueldo anteriores) — el motor no aplica prescripción (art. 256 LCT) sobre esos días, confía en que ya vienen depurados. Es opcional: si no se cargó ningún valor para el caso, se asume 0 (sin deuda conocida) y no bloquea la auditoría. Devenga SAC con el mismo criterio que el proporcional del año en curso — ver §4.7.
 
 ```
 valorDia = sueldoMensualActual / parametros.divisorVacaciones   // mismo valor día que §4.5
@@ -193,11 +194,18 @@ function calcularVacacionesPeriodosAnteriores(v: VariablesCaso, p: ParametrosNor
 
 ### 4.7 SAC sobre vacaciones no gozadas
 
+Las vacaciones no gozadas integran la base de cálculo del aguinaldo, con el mismo criterio tanto para el proporcional del año en curso (§4.5) como para la deuda de períodos anteriores (§4.6) — cada una liquida su propio rubro (`SAC_S_VAC` / `SAC_S_VAC_ANTERIORES`) para no mezclar ambos controles en la auditoría.
+
 ```
-// las vacaciones no gozadas del año en curso integran la base de cálculo del
-// aguinaldo; la deuda de períodos anteriores (§4.6) no genera SAC adicional,
-// porque el aguinaldo de esos años ya se devengó y liquidó en su momento
-sacSobreVacaciones = vacacionesNoGozadas / 12
+sacSobreVacaciones = vacacionesNoGozadas / 12                     // SAC_S_VAC
+sacSobreVacacionesAnteriores = vacacionesNoGozadasAnteriores / 12 // SAC_S_VAC_ANTERIORES
+```
+
+```ts
+function calcularSACSobreVacaciones(vacaciones: RubroCalculado, rubroDestino: CodigoRubro): RubroCalculado {
+  const monto = vacaciones.monto / 12;
+  return { rubro: rubroDestino, monto, detalle: { montoVacacionesNoGozadas: vacaciones.monto } };
+}
 ```
 
 > **Multas dadas de baja (2026-09-22):** el motor calculaba además las multas del
@@ -285,7 +293,7 @@ Cada función de cálculo (`calcularIndemnizacionAntiguedad`, `calcularSACPropor
 
 Cada cliente puede tener su propia combinación de conceptos (`Rubro`) a través de `ConfiguracionRubroCliente` (`apps/api/prisma/schema.prisma`), gestionada por `ConfiguracionesRubroService` (`apps/api/src/configuraciones-rubro/`):
 
-- **Conceptos fijos** (`Rubro.esLegal = true`): los 7 rubros del catálogo base (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas del año en curso y de períodos anteriores, SAC sobre vacaciones). El servicio **rechaza** cualquier intento de desactivarlos, pasarlos a "variable" o asignarles un monto manual — siempre los determina el motor de cálculo.
+- **Conceptos fijos** (`Rubro.esLegal = true`): los 8 rubros del catálogo base (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas del año en curso y de períodos anteriores, y el SAC sobre cada una de esas dos). El servicio **rechaza** cualquier intento de desactivarlos, pasarlos a "variable" o asignarles un monto manual — siempre los determina el motor de cálculo.
   - Único ajuste permitido: el **tope indemnizatorio** propio del convenio del cliente (`parametros.topeIndemnizatorio`, whitelisted en `PARAMETROS_PERMITIDOS_POR_RUBRO`), validado por `validarTopeIndemnizatorio` (`packages/motor-calculo/src/validaciones/tope-indemnizatorio.ts`) — debe ser un número positivo.
   - Ese tope se inyecta en el cálculo envolviendo el repositorio de parámetros con `conTopeIndemnizatorio` (`packages/motor-calculo/src/parametros.ts`), pero **nunca elude el piso del 67% de la MRMNH** de la doctrina CSJN "Vizzoti": `calcularIndemnizacionAntiguedad` sigue aplicando `Math.max(base, 0.67 * mrmnh)` sobre el resultado, sea cual sea el tope configurado.
 - **Conceptos variables** (`Rubro.esLegal = false`): ítems negociados propios del cliente (premios, bonos, gratificaciones no legales) que se dan de alta bajo demanda con un código, nombre y `valorFijo`, sin piso legal.

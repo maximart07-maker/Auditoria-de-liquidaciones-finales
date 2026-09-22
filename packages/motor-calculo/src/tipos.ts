@@ -13,7 +13,8 @@ export type CodigoRubro =
   | 'SAC_PROP'
   | 'VAC_NO_GOZADAS'
   | 'VAC_NO_GOZADAS_ANTERIORES'
-  | 'SAC_S_VAC';
+  | 'SAC_S_VAC'
+  | 'SAC_S_VAC_ANTERIORES';
 
 /** Datos base del caso necesarios para calcular los rubros. Todo campo variable
  * (montos, fechas, banderas de intimación) proviene de `Variable_Caso` en el modelo de datos. */
