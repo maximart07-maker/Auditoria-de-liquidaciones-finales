@@ -47,7 +47,7 @@ interface VariablesCaso {
 
 ### 2.1 De dónde sale la MRMNH: histórico mensual de remuneraciones
 
-`mejorRemuneracionMensualNormalYHabitual` **no se carga como un número suelto**: el auditor carga el histórico mensual de remuneraciones del caso (`RemuneracionMensual` — básico, horas extra, comisiones, premios habituales, etc., manual u OCR de recibos de sueldo) y el motor deriva la MRMNH de forma pura, trazable y reproducible con `calcularMRMNH`, siguiendo el art. 245 LCT: el mayor mes remunerativo y habitual devengado durante el **último año trabajado**, o durante el tiempo de prestación de servicios si éste fuera menor a un año.
+`mejorRemuneracionMensualNormalYHabitual` **no se carga como un número suelto**: el histórico mensual de remuneraciones cuelga del **`Empleado`** (no del `Caso` — ver §2.2, se puede importar en lote antes de que exista ningún caso de desvinculación) y el motor deriva la MRMNH de forma pura, trazable y reproducible con `calcularMRMNH`, siguiendo el art. 245 LCT: el mayor mes remunerativo y habitual devengado durante el **último año trabajado**, o durante el tiempo de prestación de servicios si éste fuera menor a un año.
 
 ```ts
 interface RemuneracionMensual {
@@ -68,7 +68,23 @@ function calcularMRMNH(remuneraciones: RemuneracionMensual[], fechaIngreso: Date
 }
 ```
 
-`AuditoriasService.ejecutar()` llama a `calcularMRMNH` con el histórico cargado para el caso (`RemuneracionMensual`, incluido en la consulta del `Caso`) antes de armar el resto de `VariablesCaso`; si no hay ningún mes normal/habitual dentro de la ventana, devuelve 400 con un mensaje claro para el auditor en vez de dejar auditar con un dato faltante. Es obligatorio: sin al menos un mes cargado, la auditoría no puede ejecutarse.
+`AuditoriasService.ejecutar()` llama a `calcularMRMNH` con el histórico del **empleado** del caso (`caso.empleado.remuneracionesMensuales`) antes de armar el resto de `VariablesCaso`; si no hay ningún mes normal/habitual dentro de la ventana, devuelve 400 con un mensaje claro para el auditor en vez de dejar auditar con un dato faltante. Es obligatorio: sin al menos un mes cargado para ese empleado, la auditoría no puede ejecutarse.
+
+### 2.2 Import masivo de nómina
+
+Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `POST /clientes/:clienteId/importaciones/nomina` (`apps/api/src/importaciones/`) acepta un `.xlsx` con un **renglón por concepto liquidado, por empleado y período** — el formato típico de export de un sistema de liquidación de sueldos:
+
+| Columna | Uso |
+|---|---|
+| `Doc` | CUIL del empleado (se normaliza sacando guiones/espacios; es la clave de matching contra `Empleado.cuil`) |
+| `Apellido y Nombre` | Nombre, para dar de alta el `Empleado` si el CUIL no existe todavía en el cliente |
+| `Período` | Mes al que corresponde el concepto (se normaliza al día 1) |
+| `Ingreso` | Fecha de ingreso, para el alta automática del `Empleado` |
+| `Categoría` | Categoría/puesto, para el alta automática del `Empleado` |
+| `Proceso` | Nombre del proceso de liquidación — si contiene "ajuste" (retroactivo), el mes se marca `esNormalYHabitual=false` |
+| `Concepto`, `Monto`, `TIPO` | Se agrupan por empleado+período: `TIPO='REMU'` suma a `conceptosRemunerativos`, cualquier otro valor suma a `conceptosNoRemunerativos` (informativo, no entra en la MRMNH); el desglose por concepto queda en `RemuneracionMensual.detalle` para trazabilidad |
+
+`Empleado`, `Modelo`, `Depto.`, `Tipo`, `Contrato` y `Código` no se usan (no tienen un campo equivalente en el modelo hoy). El resto de columnas (`Doc`, `Apellido y Nombre`, `Período`, `Ingreso`, `Categoría`, `Proceso`, `Concepto`, `Monto`, `TIPO`) son obligatorias — el import rechaza el archivo si falta alguna. La importación es **idempotente**: reimportar el mismo archivo actualiza (no duplica) los mismos `Empleado`/`RemuneracionMensual` vía upsert por `[clienteId, cuil]` / `[empleadoId, periodo]`.
 
 ## 3. Rubros aplicables según tipo de extinción
 

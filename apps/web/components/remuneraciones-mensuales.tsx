@@ -6,7 +6,7 @@ import { RemuneracionMensual, apiClient } from '@/lib/api-client';
 /** Histórico mensual de remuneraciones, base para que el motor derive la MRMNH
  * (mejor remuneración mensual, normal y habitual — art. 245 LCT) en vez de que
  * se cargue un único número a mano. Ver docs/motor-calculo.md §2.1. */
-export function RemuneracionesMensuales({ casoId, inicial }: { casoId: string; inicial: RemuneracionMensual[] }) {
+export function RemuneracionesMensuales({ empleadoId, inicial }: { empleadoId: string; inicial: RemuneracionMensual[] }) {
   const [remuneraciones, setRemuneraciones] = useState(
     [...inicial].sort((a, b) => a.periodo.localeCompare(b.periodo)),
   );
@@ -24,7 +24,7 @@ export function RemuneracionesMensuales({ casoId, inicial }: { casoId: string; i
     }
     setGuardando(true);
     try {
-      const guardada = await apiClient.guardarRemuneracionMensual(casoId, form.periodo, {
+      const guardada = await apiClient.guardarRemuneracionMensual(empleadoId, form.periodo, {
         conceptosRemunerativos: monto,
         esNormalYHabitual: form.esNormalYHabitual,
         fuente: 'manual',
@@ -43,7 +43,7 @@ export function RemuneracionesMensuales({ casoId, inicial }: { casoId: string; i
   async function eliminar(periodo: string) {
     setGuardando(true);
     try {
-      await apiClient.eliminarRemuneracionMensual(casoId, periodo);
+      await apiClient.eliminarRemuneracionMensual(empleadoId, periodo);
       setRemuneraciones((prev) => prev.filter((r) => r.periodo !== periodo));
     } catch (e) {
       setError((e as Error).message);

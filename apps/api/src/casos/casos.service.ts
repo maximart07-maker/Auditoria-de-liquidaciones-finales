@@ -26,10 +26,9 @@ export class CasosService {
     const caso = await this.prisma.caso.findUnique({
       where: { id },
       include: {
-        empleado: true,
+        empleado: { include: { remuneracionesMensuales: { orderBy: { periodo: 'asc' } } } },
         variables: true,
         documentos: true,
-        remuneracionesMensuales: { orderBy: { periodo: 'asc' } },
         liquidaciones: { include: { rubros: { include: { rubro: true } } } },
         auditorias: { include: { hallazgos: { include: { rubro: true } } }, orderBy: { fecha: 'desc' } },
       },

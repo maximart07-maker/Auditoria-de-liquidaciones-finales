@@ -60,7 +60,7 @@ export function CasoTabs({ caso }: { caso: CasoDetalle }) {
       )}
 
       {tabActiva === 'Remuneraciones' && (
-        <RemuneracionesMensuales casoId={caso.id} inicial={caso.remuneracionesMensuales} />
+        <RemuneracionesMensuales empleadoId={caso.empleado.id} inicial={caso.empleado.remuneracionesMensuales ?? []} />
       )}
 
       {tabActiva === 'Documentos' && (

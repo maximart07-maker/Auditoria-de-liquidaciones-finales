@@ -11,6 +11,7 @@ import { LiquidacionesModule } from './liquidaciones/liquidaciones.module';
 import { AuditoriasModule } from './auditorias/auditorias.module';
 import { ConfiguracionesRubroModule } from './configuraciones-rubro/configuraciones-rubro.module';
 import { RemuneracionesMensualesModule } from './remuneraciones-mensuales/remuneraciones-mensuales.module';
+import { ImportacionesModule } from './importaciones/importaciones.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { RemuneracionesMensualesModule } from './remuneraciones-mensuales/remune
     AuditoriasModule,
     ConfiguracionesRubroModule,
     RemuneracionesMensualesModule,
+    ImportacionesModule,
   ],
 })
 export class AppModule {}

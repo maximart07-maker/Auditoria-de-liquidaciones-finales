@@ -19,12 +19,20 @@ export default async function PanelClientePage({ params }: { params: { clienteId
         </p>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">{cliente.razonSocial}</h1>
-          <Link
-            href={`/clientes/${cliente.id}/configuracion`}
-            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
-          >
-            Configurar conceptos fijos y variables
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={`/clientes/${cliente.id}/importar`}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+            >
+              Importar nómina
+            </Link>
+            <Link
+              href={`/clientes/${cliente.id}/configuracion`}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+            >
+              Configurar conceptos fijos y variables
+            </Link>
+          </div>
         </div>
       </div>
 

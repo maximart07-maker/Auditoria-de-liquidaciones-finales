@@ -22,11 +22,29 @@ export interface Cliente {
   industria: string | null;
 }
 
+export interface RemuneracionMensual {
+  id: string;
+  periodo: string;
+  conceptosRemunerativos: string;
+  esNormalYHabitual: boolean;
+  detalle: Record<string, unknown> | null;
+  fuente: 'manual' | 'ocr' | 'importado';
+}
+
+export interface UpsertRemuneracionMensual {
+  conceptosRemunerativos: number;
+  esNormalYHabitual?: boolean;
+  detalle?: Record<string, unknown>;
+  fuente?: 'manual' | 'ocr' | 'importado';
+}
+
 export interface Empleado {
   id: string;
   nombre: string;
   cuil: string;
   fechaIngreso: string;
+  /** Solo viene incluido en `CasoDetalle.empleado` (vía `obtenerCaso`), no en los listados. */
+  remuneracionesMensuales?: RemuneracionMensual[];
 }
 
 export interface Caso {
@@ -83,26 +101,9 @@ export interface Auditoria {
   hallazgos: Hallazgo[];
 }
 
-export interface RemuneracionMensual {
-  id: string;
-  periodo: string;
-  conceptosRemunerativos: string;
-  esNormalYHabitual: boolean;
-  detalle: Record<string, number> | null;
-  fuente: 'manual' | 'ocr' | 'importado';
-}
-
-export interface UpsertRemuneracionMensual {
-  conceptosRemunerativos: number;
-  esNormalYHabitual?: boolean;
-  detalle?: Record<string, number>;
-  fuente?: 'manual' | 'ocr' | 'importado';
-}
-
 export interface CasoDetalle extends Caso {
   variables: VariableCaso[];
   documentos: Documento[];
-  remuneracionesMensuales: RemuneracionMensual[];
   liquidaciones: Liquidacion[];
   auditorias: Auditoria[];
 }
@@ -125,6 +126,15 @@ export interface UpsertConfiguracionRubro {
   baseLegal?: string;
 }
 
+export interface ResumenImportacion {
+  filasProcesadas: number;
+  empleadosDetectados: number;
+  empleadosCreados: number;
+  empleadosActualizados: number;
+  mesesImportados: number;
+  errores: string[];
+}
+
 export const apiClient = {
   listarClientes: () => request<Cliente[]>('/clientes'),
   obtenerCliente: (id: string) => request<Cliente>(`/clientes/${id}`),
@@ -142,11 +152,24 @@ export const apiClient = {
     }),
   eliminarConfiguracionRubro: (clienteId: string, codigoRubro: string) =>
     request<void>(`/clientes/${clienteId}/configuraciones-rubro/${codigoRubro}`, { method: 'DELETE' }),
-  guardarRemuneracionMensual: (casoId: string, periodo: string, dto: UpsertRemuneracionMensual) =>
-    request<RemuneracionMensual>(`/casos/${casoId}/remuneraciones-mensuales/${periodo}`, {
+  guardarRemuneracionMensual: (empleadoId: string, periodo: string, dto: UpsertRemuneracionMensual) =>
+    request<RemuneracionMensual>(`/empleados/${empleadoId}/remuneraciones-mensuales/${periodo}`, {
       method: 'PUT',
       body: JSON.stringify(dto),
     }),
-  eliminarRemuneracionMensual: (casoId: string, periodo: string) =>
-    request<void>(`/casos/${casoId}/remuneraciones-mensuales/${periodo}`, { method: 'DELETE' }),
+  eliminarRemuneracionMensual: (empleadoId: string, periodo: string) =>
+    request<void>(`/empleados/${empleadoId}/remuneraciones-mensuales/${periodo}`, { method: 'DELETE' }),
+  importarNomina: async (clienteId: string, archivo: File): Promise<ResumenImportacion> => {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    const respuesta = await fetch(`${API_URL}/clientes/${clienteId}/importaciones/nomina`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!respuesta.ok) {
+      const cuerpo = await respuesta.text();
+      throw new Error(`API ${respuesta.status} en /importaciones/nomina: ${cuerpo}`);
+    }
+    return respuesta.json() as Promise<ResumenImportacion>;
+  },
 };

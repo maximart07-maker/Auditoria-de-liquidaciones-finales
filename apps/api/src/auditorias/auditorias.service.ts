@@ -25,7 +25,7 @@ export class AuditoriasService {
   async ejecutar(casoId: string, usuarioId?: string) {
     const caso = await this.prisma.caso.findUnique({
       where: { id: casoId },
-      include: { empleado: true, variables: true, remuneracionesMensuales: true },
+      include: { empleado: { include: { remuneracionesMensuales: true } }, variables: true },
     });
     if (!caso) throw new NotFoundException(`Caso ${casoId} no encontrado`);
 
@@ -37,7 +37,11 @@ export class AuditoriasService {
       throw new BadRequestException('El caso no tiene una liquidación de la empresa cargada todavía');
     }
 
-    const mrmnh = this.calcularMRMNHDelCaso(caso.remuneracionesMensuales, caso.empleado.fechaIngreso, caso.fechaExtincion);
+    const mrmnh = this.calcularMRMNHDelCaso(
+      caso.empleado.remuneracionesMensuales,
+      caso.empleado.fechaIngreso,
+      caso.fechaExtincion,
+    );
     const variablesCaso = variablesCasoDesde(caso, caso.empleado, caso.variables, mrmnh.valor);
     const repositorioParametros = await this.repositorioParametrosParaCliente(caso.empleado.clienteId);
     const liquidacionCalculada = calcularLiquidacionSistema(variablesCaso, repositorioParametros);
@@ -132,9 +136,10 @@ export class AuditoriasService {
 
   /**
    * Deriva la MRMNH (mejor remuneración mensual, normal y habitual — art. 245
-   * LCT) del histórico de `RemuneracionMensual` cargado para el caso, en vez de
-   * un único número tipeado a mano. Traduce `SinRemuneracionesError` a un 400
-   * claro para el auditor.
+   * LCT) del histórico de `RemuneracionMensual` cargado para el empleado (manual
+   * o importado en lote, ver `ImportacionesService`), en vez de un único número
+   * tipeado a mano. Traduce `SinRemuneracionesError` a un 400 claro para el
+   * auditor.
    */
   private calcularMRMNHDelCaso(
     remuneraciones: { periodo: Date; conceptosRemunerativos: Prisma.Decimal; esNormalYHabitual: boolean }[],

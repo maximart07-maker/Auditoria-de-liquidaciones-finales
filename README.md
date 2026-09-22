@@ -60,4 +60,4 @@ Con la API sin datos, `/` mostrará "sin clientes cargados" — se puede crear e
 - Worker de OCR/parsing (BullMQ + Textract/Document Intelligence) que procese los `Documento` en estado `pendiente`.
 - Generación real de informes PDF (`Informe`).
 - Autenticación/RBAC (JWT) — los endpoints hoy no están protegidos.
-- Import masivo de nómina (CSV/Excel) para alta de `Lote`.
+- Import masivo de nómina para alta de `Lote` (el import de `.xlsx` a `Empleado`/`RemuneracionMensual` ya está — ver `POST /clientes/:clienteId/importaciones/nomina`, docs/motor-calculo.md §2.2).

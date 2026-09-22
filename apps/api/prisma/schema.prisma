@@ -130,11 +130,40 @@ model Empleado {
   provincia         String?
   remuneracionBase  Decimal? @map("remuneracion_base") @db.Decimal(14, 2)
 
-  cliente Cliente @relation(fields: [clienteId], references: [id])
-  casos   Caso[]
+  cliente                 Cliente               @relation(fields: [clienteId], references: [id])
+  casos                   Caso[]
+  remuneracionesMensuales RemuneracionMensual[]
 
   @@unique([clienteId, cuil])
   @@map("empleado")
+}
+
+/// Un mes de remuneración del empleado (manual, OCR de recibos de sueldo, o
+/// importado en lote desde el sistema de liquidación de nómina), base para que
+/// el motor de cálculo derive la MRMNH (mejor remuneración mensual, normal y
+/// habitual — art. 245 LCT) en vez de que se tipee un único número a mano.
+/// Cuelga del `Empleado` (no del `Caso`): se puede cargar/importar antes de que
+/// exista ningún caso de desvinculación, y cuando se abre uno para ese
+/// empleado el motor ya tiene el historial disponible. `conceptosRemunerativos`
+/// es la suma de los conceptos remunerativos del mes (básico, horas extra,
+/// comisiones, premios habituales, etc. — excluye lo no remunerativo);
+/// `esNormalYHabitual=false` marca un mes distorsionado por algo excepcional
+/// (retroactivo, ajuste de haberes, liquidación de vacaciones) que no debe
+/// competir por ser la "mejor" remuneración.
+model RemuneracionMensual {
+  id                     String         @id @default(uuid())
+  empleadoId             String         @map("empleado_id")
+  periodo                DateTime       @map("periodo") @db.Date
+  conceptosRemunerativos Decimal        @map("conceptos_remunerativos") @db.Decimal(14, 2)
+  esNormalYHabitual      Boolean        @default(true) @map("es_normal_y_habitual")
+  detalle                Json?
+  fuente                 FuenteVariable @default(manual)
+  createdAt              DateTime       @default(now()) @map("created_at")
+
+  empleado Empleado @relation(fields: [empleadoId], references: [id])
+
+  @@unique([empleadoId, periodo])
+  @@map("remuneracion_mensual")
 }
 
 model Lote {
@@ -160,40 +189,15 @@ model Caso {
   estado         EstadoCaso    @default(borrador)
   createdAt      DateTime      @default(now()) @map("created_at")
 
-  empleado                Empleado              @relation(fields: [empleadoId], references: [id])
-  lote                    Lote?                 @relation(fields: [loteId], references: [id])
-  documentos              Documento[]
-  variables               VariableCaso[]
-  remuneracionesMensuales RemuneracionMensual[]
-  liquidaciones           Liquidacion[]
-  auditorias              Auditoria[]
-  informes                Informe[]
+  empleado      Empleado       @relation(fields: [empleadoId], references: [id])
+  lote          Lote?          @relation(fields: [loteId], references: [id])
+  documentos    Documento[]
+  variables     VariableCaso[]
+  liquidaciones Liquidacion[]
+  auditorias    Auditoria[]
+  informes      Informe[]
 
   @@map("caso")
-}
-
-/// Un mes de remuneración cargado por el auditor (manual u OCR de recibos de
-/// sueldo), base para que el motor de cálculo derive la MRMNH (mejor
-/// remuneración mensual, normal y habitual — art. 245 LCT) en vez de que se
-/// tipee un único número a mano. `conceptosRemunerativos` es la suma de los
-/// conceptos remunerativos del mes (básico, horas extra, comisiones, premios
-/// habituales, etc. — excluye lo no remunerativo); `esNormalYHabitual=false`
-/// marca un mes distorsionado por algo excepcional (retroactivo, liquidación
-/// de vacaciones) que no debe competir por ser la "mejor" remuneración.
-model RemuneracionMensual {
-  id                     String         @id @default(uuid())
-  casoId                 String         @map("caso_id")
-  periodo                DateTime       @map("periodo") @db.Date
-  conceptosRemunerativos Decimal        @map("conceptos_remunerativos") @db.Decimal(14, 2)
-  esNormalYHabitual      Boolean        @default(true) @map("es_normal_y_habitual")
-  detalle                Json?
-  fuente                 FuenteVariable @default(manual)
-  createdAt              DateTime       @default(now()) @map("created_at")
-
-  caso Caso @relation(fields: [casoId], references: [id])
-
-  @@unique([casoId, periodo])
-  @@map("remuneracion_mensual")
 }
 
 model Documento {

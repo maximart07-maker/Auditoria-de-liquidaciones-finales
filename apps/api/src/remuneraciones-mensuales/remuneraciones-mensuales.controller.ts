@@ -2,26 +2,26 @@ import { Body, Controller, Delete, Get, Param, Put } from '@nestjs/common';
 import { RemuneracionesMensualesService } from './remuneraciones-mensuales.service';
 import { UpsertRemuneracionMensualDto } from './dto/upsert-remuneracion-mensual.dto';
 
-@Controller('casos/:casoId/remuneraciones-mensuales')
+@Controller('empleados/:empleadoId/remuneraciones-mensuales')
 export class RemuneracionesMensualesController {
   constructor(private readonly service: RemuneracionesMensualesService) {}
 
   @Get()
-  listar(@Param('casoId') casoId: string) {
-    return this.service.listar(casoId);
+  listar(@Param('empleadoId') empleadoId: string) {
+    return this.service.listar(empleadoId);
   }
 
   @Put(':periodo')
   upsert(
-    @Param('casoId') casoId: string,
+    @Param('empleadoId') empleadoId: string,
     @Param('periodo') periodo: string,
     @Body() dto: UpsertRemuneracionMensualDto,
   ) {
-    return this.service.upsert(casoId, periodo, dto);
+    return this.service.upsert(empleadoId, periodo, dto);
   }
 
   @Delete(':periodo')
-  eliminar(@Param('casoId') casoId: string, @Param('periodo') periodo: string) {
-    return this.service.eliminar(casoId, periodo);
+  eliminar(@Param('empleadoId') empleadoId: string, @Param('periodo') periodo: string) {
+    return this.service.eliminar(empleadoId, periodo);
   }
 }

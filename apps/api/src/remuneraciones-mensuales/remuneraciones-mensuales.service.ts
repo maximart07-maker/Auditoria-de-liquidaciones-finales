@@ -7,19 +7,19 @@ import { UpsertRemuneracionMensualDto } from './dto/upsert-remuneracion-mensual.
 export class RemuneracionesMensualesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listar(casoId: string) {
-    await this.asegurarCaso(casoId);
-    return this.prisma.remuneracionMensual.findMany({ where: { casoId }, orderBy: { periodo: 'asc' } });
+  async listar(empleadoId: string) {
+    await this.asegurarEmpleado(empleadoId);
+    return this.prisma.remuneracionMensual.findMany({ where: { empleadoId }, orderBy: { periodo: 'asc' } });
   }
 
-  async upsert(casoId: string, periodo: string, dto: UpsertRemuneracionMensualDto) {
-    await this.asegurarCaso(casoId);
+  async upsert(empleadoId: string, periodo: string, dto: UpsertRemuneracionMensualDto) {
+    await this.asegurarEmpleado(empleadoId);
     const fechaPeriodo = new Date(periodo);
 
     return this.prisma.remuneracionMensual.upsert({
-      where: { casoId_periodo: { casoId, periodo: fechaPeriodo } },
+      where: { empleadoId_periodo: { empleadoId, periodo: fechaPeriodo } },
       create: {
-        casoId,
+        empleadoId,
         periodo: fechaPeriodo,
         conceptosRemunerativos: dto.conceptosRemunerativos,
         esNormalYHabitual: dto.esNormalYHabitual ?? true,
@@ -35,14 +35,14 @@ export class RemuneracionesMensualesService {
     });
   }
 
-  async eliminar(casoId: string, periodo: string) {
-    await this.asegurarCaso(casoId);
+  async eliminar(empleadoId: string, periodo: string) {
+    await this.asegurarEmpleado(empleadoId);
     const fechaPeriodo = new Date(periodo);
-    await this.prisma.remuneracionMensual.deleteMany({ where: { casoId, periodo: fechaPeriodo } });
+    await this.prisma.remuneracionMensual.deleteMany({ where: { empleadoId, periodo: fechaPeriodo } });
   }
 
-  private async asegurarCaso(casoId: string): Promise<void> {
-    const caso = await this.prisma.caso.findUnique({ where: { id: casoId } });
-    if (!caso) throw new NotFoundException(`Caso ${casoId} no encontrado`);
+  private async asegurarEmpleado(empleadoId: string): Promise<void> {
+    const empleado = await this.prisma.empleado.findUnique({ where: { id: empleadoId } });
+    if (!empleado) throw new NotFoundException(`Empleado ${empleadoId} no encontrado`);
   }
 }
