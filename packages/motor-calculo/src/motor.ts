@@ -5,6 +5,7 @@ import { calcularPreaviso } from './rubros/preaviso';
 import { calcularSACProporcional } from './rubros/sac-proporcional';
 import { calcularSACSobreVacaciones } from './rubros/sac-sobre-vacaciones';
 import { calcularVacacionesNoGozadas } from './rubros/vacaciones-no-gozadas';
+import { calcularVacacionesPeriodosAnteriores } from './rubros/vacaciones-periodos-anteriores';
 import { LiquidacionCalculada, RubroCalculado, VariablesCaso } from './tipos';
 
 /**
@@ -42,6 +43,12 @@ export function calcularLiquidacionSistema(
 
   const sacSobreVacaciones = calcularSACSobreVacaciones(vacacionesNoGozadas);
   if (sacSobreVacaciones.monto > 0) rubros.push(sacSobreVacaciones);
+
+  // Control aparte del proporcional del año en curso: días de vacaciones adeudados
+  // de años anteriores, nunca otorgados ni compensados. No devenga SAC adicional
+  // (a diferencia de vacacionesNoGozadas del año en curso).
+  const vacacionesPeriodosAnteriores = calcularVacacionesPeriodosAnteriores(variables, parametros);
+  if (vacacionesPeriodosAnteriores.monto > 0) rubros.push(vacacionesPeriodosAnteriores);
 
   const total = rubros.reduce((acumulado, rubro) => acumulado + rubro.monto, 0);
 

@@ -10,4 +10,5 @@ export { calcularPreaviso } from './rubros/preaviso';
 export { calcularIntegracionMes } from './rubros/integracion-mes';
 export { calcularSACProporcional } from './rubros/sac-proporcional';
 export { calcularVacacionesNoGozadas } from './rubros/vacaciones-no-gozadas';
+export { calcularVacacionesPeriodosAnteriores } from './rubros/vacaciones-periodos-anteriores';
 export { calcularSACSobreVacaciones } from './rubros/sac-sobre-vacaciones';

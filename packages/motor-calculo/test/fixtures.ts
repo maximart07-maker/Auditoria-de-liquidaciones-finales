@@ -12,6 +12,7 @@ export function variablesBase(overrides: Partial<VariablesCaso> = {}): Variables
     mejorRemuneracionMensualNormalYHabitual: 100_000,
     sueldoMensualActual: 100_000,
     diasVacacionesGozadosEnElAnio: 0,
+    diasVacacionesPendientesPeriodosAnteriores: 0,
     preavisoOtorgado: false,
     convenioColectivo: 'GENERICO',
     ...overrides,

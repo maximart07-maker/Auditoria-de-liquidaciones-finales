@@ -12,6 +12,7 @@ export type CodigoRubro =
   | 'INTEGRACION_MES'
   | 'SAC_PROP'
   | 'VAC_NO_GOZADAS'
+  | 'VAC_NO_GOZADAS_ANTERIORES'
   | 'SAC_S_VAC';
 
 /** Datos base del caso necesarios para calcular los rubros. Todo campo variable
@@ -25,6 +26,12 @@ export interface VariablesCaso {
   /** Sueldo mensual vigente al egreso, usado para valuar el día de vacaciones. */
   sueldoMensualActual: number;
   diasVacacionesGozadosEnElAnio: number;
+  /** Días de vacaciones adeudados de períodos (años) anteriores al de la extinción,
+   * que la empresa nunca otorgó ni compensó — control aparte del proporcional del
+   * año en curso (`diasVacacionesGozadosEnElAnio`/`VAC_NO_GOZADAS`). Se carga tal
+   * cual lo informa el auditor (manual u obtenido del recibo de sueldo); el motor
+   * no aplica prescripción, confía en que ya viene depurado. */
+  diasVacacionesPendientesPeriodosAnteriores: number;
   preavisoOtorgado: boolean;
   convenioColectivo: string;
 }

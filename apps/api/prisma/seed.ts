@@ -10,6 +10,7 @@ const RUBROS = [
   { codigo: 'INTEGRACION_MES', nombre: 'Integración del mes de despido', baseLegal: 'Art. 233 LCT' },
   { codigo: 'SAC_PROP', nombre: 'SAC proporcional', baseLegal: 'Ley 23.041' },
   { codigo: 'VAC_NO_GOZADAS', nombre: 'Vacaciones no gozadas', baseLegal: 'Arts. 150 y 156 LCT' },
+  { codigo: 'VAC_NO_GOZADAS_ANTERIORES', nombre: 'Vacaciones no gozadas de períodos anteriores', baseLegal: 'Art. 156 LCT' },
   { codigo: 'SAC_S_VAC', nombre: 'SAC sobre vacaciones no gozadas', baseLegal: 'Arts. 150 y 156 LCT' },
 ];
 
