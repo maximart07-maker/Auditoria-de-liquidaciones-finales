@@ -17,7 +17,15 @@ export default async function PanelClientePage({ params }: { params: { clienteId
           </Link>{' '}
           / {cliente.razonSocial}
         </p>
-        <h1 className="text-xl font-semibold">{cliente.razonSocial}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold">{cliente.razonSocial}</h1>
+          <Link
+            href={`/clientes/${cliente.id}/configuracion`}
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+          >
+            Configurar conceptos fijos y variables
+          </Link>
+        </div>
       </div>
 
       <section className="space-y-3">

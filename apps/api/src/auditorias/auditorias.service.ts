@@ -1,5 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { calcularLiquidacionSistema, generarHallazgos, RubroDeclarado, Severidad } from '@audit/motor-calculo';
+import {
+  calcularLiquidacionSistema,
+  conTopeIndemnizatorio,
+  generarHallazgos,
+  repositorioParametrosPorDefecto,
+  RubroDeclarado,
+  Severidad,
+} from '@audit/motor-calculo';
 import { PrismaService } from '../prisma/prisma.service';
 import { variablesCasoDesde } from './variables-caso.mapper';
 
@@ -28,7 +35,8 @@ export class AuditoriasService {
     }
 
     const variablesCaso = variablesCasoDesde(caso, caso.empleado, caso.variables);
-    const liquidacionCalculada = calcularLiquidacionSistema(variablesCaso);
+    const repositorioParametros = await this.repositorioParametrosParaCliente(caso.empleado.clienteId);
+    const liquidacionCalculada = calcularLiquidacionSistema(variablesCaso, repositorioParametros);
 
     const rubrosDeclarados: RubroDeclarado[] = liquidacionEmpresa.rubros.map((r) => ({
       rubro: r.rubro.codigo as RubroDeclarado['rubro'],
@@ -100,5 +108,21 @@ export class AuditoriasService {
     const id = mapa.get(codigo);
     if (!id) throw new BadRequestException(`Rubro "${codigo}" no está cargado en el catálogo (¿faltó correr el seed?)`);
     return id;
+  }
+
+  /**
+   * Si el cliente tiene configurado un tope indemnizatorio propio para
+   * IND_ANTIGUEDAD (art. 245 LCT), lo aplica sobre el repositorio de parámetros
+   * normativos. `calcularIndemnizacionAntiguedad` sigue garantizando el piso del
+   * 67% de la MRMNH (doctrina "Vizzoti") sin importar el tope configurado, así
+   * que esta personalización nunca puede resultar en un monto inferior al legal.
+   */
+  private async repositorioParametrosParaCliente(clienteId: string) {
+    const config = await this.prisma.configuracionRubroCliente.findFirst({
+      where: { clienteId, rubro: { codigo: 'IND_ANTIGUEDAD' } },
+    });
+    const topeIndemnizatorio = (config?.parametros as { topeIndemnizatorio?: number } | null)?.topeIndemnizatorio;
+    if (typeof topeIndemnizatorio !== 'number') return repositorioParametrosPorDefecto;
+    return conTopeIndemnizatorio(repositorioParametrosPorDefecto, topeIndemnizatorio);
   }
 }

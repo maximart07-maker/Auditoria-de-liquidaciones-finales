@@ -3,6 +3,7 @@ export * from './utilidades-fecha';
 export * from './parametros';
 export * from './motor';
 export * from './comparacion';
+export * from './validaciones/tope-indemnizatorio';
 
 export { calcularIndemnizacionAntiguedad } from './rubros/indemnizacion-antiguedad';
 export { calcularPreaviso } from './rubros/preaviso';

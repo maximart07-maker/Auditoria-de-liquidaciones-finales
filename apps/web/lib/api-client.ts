@@ -90,6 +90,24 @@ export interface CasoDetalle extends Caso {
   auditorias: Auditoria[];
 }
 
+export interface ConfiguracionRubro {
+  rubro: { id: string; codigo: string; nombre: string; baseLegal: string | null; esLegal: boolean };
+  tipo: 'fijo' | 'variable';
+  activo: boolean;
+  valorFijo: string | null;
+  parametros: Record<string, number> | null;
+  personalizado: boolean;
+}
+
+export interface UpsertConfiguracionRubro {
+  tipo: 'fijo' | 'variable';
+  activo: boolean;
+  valorFijo?: number;
+  parametros?: Record<string, number>;
+  nombre?: string;
+  baseLegal?: string;
+}
+
 export const apiClient = {
   listarClientes: () => request<Cliente[]>('/clientes'),
   obtenerCliente: (id: string) => request<Cliente>(`/clientes/${id}`),
@@ -98,4 +116,13 @@ export const apiClient = {
   obtenerCaso: (id: string) => request<CasoDetalle>(`/casos/${id}`),
   ejecutarAuditoria: (casoId: string) =>
     request<Auditoria>(`/casos/${casoId}/auditorias`, { method: 'POST', body: JSON.stringify({}) }),
+  listarConfiguracionesRubro: (clienteId: string) =>
+    request<ConfiguracionRubro[]>(`/clientes/${clienteId}/configuraciones-rubro`),
+  guardarConfiguracionRubro: (clienteId: string, codigoRubro: string, dto: UpsertConfiguracionRubro) =>
+    request<ConfiguracionRubro>(`/clientes/${clienteId}/configuraciones-rubro/${codigoRubro}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    }),
+  eliminarConfiguracionRubro: (clienteId: string, codigoRubro: string) =>
+    request<void>(`/clientes/${clienteId}/configuraciones-rubro/${codigoRubro}`, { method: 'DELETE' }),
 };

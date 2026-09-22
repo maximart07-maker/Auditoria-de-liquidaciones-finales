@@ -9,6 +9,7 @@ import { DocumentosModule } from './documentos/documentos.module';
 import { RubrosModule } from './rubros/rubros.module';
 import { LiquidacionesModule } from './liquidaciones/liquidaciones.module';
 import { AuditoriasModule } from './auditorias/auditorias.module';
+import { ConfiguracionesRubroModule } from './configuraciones-rubro/configuraciones-rubro.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuditoriasModule } from './auditorias/auditorias.module';
     RubrosModule,
     LiquidacionesModule,
     AuditoriasModule,
+    ConfiguracionesRubroModule,
   ],
 })
 export class AppModule {}

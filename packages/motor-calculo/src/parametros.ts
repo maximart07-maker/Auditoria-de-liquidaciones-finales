@@ -53,3 +53,22 @@ export function crearRepositorioEnMemoria(
 
 /** Repositorio por defecto (seed), útil para pruebas y para bootstrap local. */
 export const repositorioParametrosPorDefecto = crearRepositorioEnMemoria();
+
+/**
+ * Envuelve un repositorio base devolviendo los mismos `ParametrosNormativos`
+ * pero con el `topeIndemnizatorio` reemplazado por el configurado a nivel
+ * cliente (p.ej. porque negocia un convenio con un tope distinto al genérico).
+ * No relaja ninguna validación legal: `calcularIndemnizacionAntiguedad` sigue
+ * aplicando el piso del 67% de la MRMNH (doctrina "Vizzoti") sobre el resultado,
+ * cualquiera sea el tope recibido acá.
+ */
+export function conTopeIndemnizatorio(
+  base: RepositorioParametrosNormativos,
+  topeIndemnizatorio: number,
+): RepositorioParametrosNormativos {
+  return {
+    obtenerVigentes(convenio: string, fecha: Date): ParametrosNormativos {
+      return { ...base.obtenerVigentes(convenio, fecha), topeIndemnizatorio };
+    },
+  };
+}

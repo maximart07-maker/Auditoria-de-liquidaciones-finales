@@ -84,6 +84,11 @@ enum EstadoHallazgo {
   descartado
 }
 
+enum TipoConcepto {
+  fijo
+  variable
+}
+
 model Cliente {
   id            String   @id @default(uuid())
   razonSocial   String   @map("razon_social")
@@ -92,9 +97,10 @@ model Cliente {
   contactoEmail String?  @map("contacto_email")
   fechaAlta     DateTime @default(now()) @map("fecha_alta")
 
-  usuarios  Usuario[]
-  empleados Empleado[]
-  lotes     Lote[]
+  usuarios             Usuario[]
+  empleados            Empleado[]
+  lotes                Lote[]
+  configuracionesRubro ConfiguracionRubroCliente[]
 
   @@map("cliente")
 }
@@ -198,16 +204,48 @@ model VariableCaso {
 }
 
 model Rubro {
-  id        String  @id @default(uuid())
-  codigo    String  @unique
-  nombre    String
-  baseLegal String? @map("base_legal")
-  activo    Boolean @default(true)
+  id          String       @id @default(uuid())
+  codigo      String       @unique
+  nombre      String
+  baseLegal   String?      @map("base_legal")
+  activo      Boolean      @default(true)
+  /// true = establecido por la legislación laboral (LCT y leyes complementarias);
+  /// estos rubros no admiten desactivación ni monto manual por cliente (ver
+  /// ConfiguracionRubroClienteService.validarContraLegislacion).
+  esLegal     Boolean      @default(true) @map("es_legal")
+  tipoDefault TipoConcepto @default(fijo) @map("tipo_default")
 
-  liquidacionRubros LiquidacionRubro[]
-  hallazgos         Hallazgo[]
+  liquidacionRubros      LiquidacionRubro[]
+  hallazgos              Hallazgo[]
+  configuracionesCliente ConfiguracionRubroCliente[]
 
   @@map("rubro")
+}
+
+/// Configuración de un concepto (rubro) para un cliente puntual. Conceptos "fijos"
+/// legales (esLegal=true en Rubro, p.ej. indemnización por antigüedad): el cliente
+/// solo puede ajustar parámetros normativos permitidos (p.ej. el tope indemnizatorio
+/// de su convenio); nunca puede desactivarlos ni fijarles un monto manual — el motor
+/// de cálculo los sigue determinando y siempre respeta los pisos legales (art. 245
+/// LCT + doctrina "Vizzoti"). Conceptos "variables" (esLegal=false): ítems negociados
+/// propios del cliente (premios, bonos, gratificaciones), con un valor fijo u otros
+/// parámetros libres, sin piso legal.
+model ConfiguracionRubroCliente {
+  id         String       @id @default(uuid())
+  clienteId  String       @map("cliente_id")
+  rubroId    String       @map("rubro_id")
+  tipo       TipoConcepto
+  activo     Boolean      @default(true)
+  valorFijo  Decimal?     @map("valor_fijo") @db.Decimal(14, 2)
+  parametros Json?
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+  rubro   Rubro   @relation(fields: [rubroId], references: [id])
+
+  @@unique([clienteId, rubroId])
+  @@map("configuracion_rubro_cliente")
 }
 
 model Liquidacion {

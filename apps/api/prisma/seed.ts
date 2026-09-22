@@ -18,10 +18,13 @@ const RUBROS = [
 
 async function main() {
   for (const rubro of RUBROS) {
+    // Todos los rubros del catálogo base provienen de la LCT/leyes complementarias:
+    // esLegal=true bloquea que un cliente los desactive, les fije un monto manual
+    // o los pase a "variable" (ver ConfiguracionRubroClienteService).
     await prisma.rubro.upsert({
       where: { codigo: rubro.codigo },
-      update: { nombre: rubro.nombre, baseLegal: rubro.baseLegal },
-      create: rubro,
+      update: { nombre: rubro.nombre, baseLegal: rubro.baseLegal, esLegal: true, tipoDefault: 'fijo' },
+      create: { ...rubro, esLegal: true, tipoDefault: 'fijo' },
     });
   }
   console.log(`Seed completado: ${RUBROS.length} rubros.`);

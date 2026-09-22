@@ -271,3 +271,14 @@ Cada función de cálculo (`calcularIndemnizacionAntiguedad`, `calcularSACPropor
 - Definir el catálogo completo de `ParametrosNormativos` por convenio colectivo relevante para los clientes iniciales.
 - Sumar reglas específicas de agravantes (ej. art. 178 LCT — despido por embarazo, art. 182 — despido por matrimonio) como rubros opcionales activables por flags del caso, siguiendo el mismo patrón de `REGISTRO_CALCULADORAS`.
 - Definir `UMBRAL_MONTO_ALTA` y los cortes de severidad con el equipo legal (valor fijo vs. relativo al sueldo del empleado).
+
+## 9. Configuración de conceptos fijos y variables por cliente
+
+Cada cliente puede tener su propia combinación de conceptos (`Rubro`) a través de `ConfiguracionRubroCliente` (`apps/api/prisma/schema.prisma`), gestionada por `ConfiguracionesRubroService` (`apps/api/src/configuraciones-rubro/`):
+
+- **Conceptos fijos** (`Rubro.esLegal = true`): los 9 rubros del catálogo base (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas, SAC sobre vacaciones, y las multas de la Ley 25.323/art. 80 LCT). El servicio **rechaza** cualquier intento de desactivarlos, pasarlos a "variable" o asignarles un monto manual — siempre los determina el motor de cálculo.
+  - Único ajuste permitido: el **tope indemnizatorio** propio del convenio del cliente (`parametros.topeIndemnizatorio`, whitelisted en `PARAMETROS_PERMITIDOS_POR_RUBRO`), validado por `validarTopeIndemnizatorio` (`packages/motor-calculo/src/validaciones/tope-indemnizatorio.ts`) — debe ser un número positivo.
+  - Ese tope se inyecta en el cálculo envolviendo el repositorio de parámetros con `conTopeIndemnizatorio` (`packages/motor-calculo/src/parametros.ts`), pero **nunca elude el piso del 67% de la MRMNH** de la doctrina CSJN "Vizzoti": `calcularIndemnizacionAntiguedad` sigue aplicando `Math.max(base, 0.67 * mrmnh)` sobre el resultado, sea cual sea el tope configurado.
+- **Conceptos variables** (`Rubro.esLegal = false`): ítems negociados propios del cliente (premios, bonos, gratificaciones no legales) que se dan de alta bajo demanda con un código, nombre y `valorFijo`, sin piso legal.
+
+`AuditoriasService.ejecutar()` resuelve el repositorio de parámetros normativos a usar por cliente (`repositorioParametrosParaCliente`) antes de invocar `calcularLiquidacionSistema`, de modo que la personalización por cliente queda reflejada en cada auditoría sin tocar el motor puro.
