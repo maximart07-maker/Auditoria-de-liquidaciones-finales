@@ -4,9 +4,10 @@ import { Caso, Empleado, VariableCaso } from '@prisma/client';
 
 /** Claves de `VariableCaso` que el motor de cálculo necesita además de lo que ya
  * vive en `Empleado` (fechaIngreso, convenioColectivo) y `Caso` (fechaExtincion,
- * tipoExtincion) — ver docs/motor-calculo.md §2. */
+ * tipoExtincion) — ver docs/motor-calculo.md §2. La MRMNH no se carga acá: se
+ * deriva del histórico de `RemuneracionMensual` vía `calcularMRMNH` (ver
+ * AuditoriasService.repositorioParametrosParaCliente y §2.1). */
 const CLAVES_REQUERIDAS = [
-  'mejorRemuneracionMensualNormalYHabitual',
   'sueldoMensualActual',
   'diasVacacionesGozadosEnElAnio',
   'preavisoOtorgado',
@@ -30,13 +31,15 @@ function aNumeroOpcional(clave: string, valor: string | undefined): number {
   return aNumero(clave, valor);
 }
 
-/** Traduce las `VariableCaso` sueltas (clave/valor) cargadas por el auditor en las
+/** Traduce las `VariableCaso` sueltas (clave/valor) cargadas por el auditor, más
+ * la MRMNH ya derivada del histórico de remuneraciones mensuales, en las
  * `VariablesCaso` tipadas que espera @audit/motor-calculo. Lanza si falta alguna
  * variable obligatoria para el tipo de extinción del caso. */
 export function variablesCasoDesde(
   caso: Caso,
   empleado: Empleado,
   variables: VariableCaso[],
+  mrmnh: number,
 ): VariablesCaso {
   const mapa = new Map(variables.map((v) => [v.clave, v.valor]));
 
@@ -49,10 +52,7 @@ export function variablesCasoDesde(
     fechaIngreso: empleado.fechaIngreso,
     fechaEgreso: caso.fechaExtincion,
     tipoExtincion: caso.tipoExtincion,
-    mejorRemuneracionMensualNormalYHabitual: aNumero(
-      'mejorRemuneracionMensualNormalYHabitual',
-      mapa.get('mejorRemuneracionMensualNormalYHabitual')!,
-    ),
+    mejorRemuneracionMensualNormalYHabitual: mrmnh,
     sueldoMensualActual: aNumero('sueldoMensualActual', mapa.get('sueldoMensualActual')!),
     diasVacacionesGozadosEnElAnio: aNumero(
       'diasVacacionesGozadosEnElAnio',

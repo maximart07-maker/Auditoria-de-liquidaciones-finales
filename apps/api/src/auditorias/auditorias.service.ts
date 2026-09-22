@@ -1,12 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   calcularLiquidacionSistema,
+  calcularMRMNH,
   conTopeIndemnizatorio,
   generarHallazgos,
   repositorioParametrosPorDefecto,
   RubroDeclarado,
   Severidad,
+  SinRemuneracionesError,
 } from '@audit/motor-calculo';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { variablesCasoDesde } from './variables-caso.mapper';
 
@@ -22,7 +25,7 @@ export class AuditoriasService {
   async ejecutar(casoId: string, usuarioId?: string) {
     const caso = await this.prisma.caso.findUnique({
       where: { id: casoId },
-      include: { empleado: true, variables: true },
+      include: { empleado: true, variables: true, remuneracionesMensuales: true },
     });
     if (!caso) throw new NotFoundException(`Caso ${casoId} no encontrado`);
 
@@ -34,7 +37,8 @@ export class AuditoriasService {
       throw new BadRequestException('El caso no tiene una liquidación de la empresa cargada todavía');
     }
 
-    const variablesCaso = variablesCasoDesde(caso, caso.empleado, caso.variables);
+    const mrmnh = this.calcularMRMNHDelCaso(caso.remuneracionesMensuales, caso.empleado.fechaIngreso, caso.fechaExtincion);
+    const variablesCaso = variablesCasoDesde(caso, caso.empleado, caso.variables, mrmnh.valor);
     const repositorioParametros = await this.repositorioParametrosParaCliente(caso.empleado.clienteId);
     const liquidacionCalculada = calcularLiquidacionSistema(variablesCaso, repositorioParametros);
 
@@ -124,5 +128,32 @@ export class AuditoriasService {
     const topeIndemnizatorio = (config?.parametros as { topeIndemnizatorio?: number } | null)?.topeIndemnizatorio;
     if (typeof topeIndemnizatorio !== 'number') return repositorioParametrosPorDefecto;
     return conTopeIndemnizatorio(repositorioParametrosPorDefecto, topeIndemnizatorio);
+  }
+
+  /**
+   * Deriva la MRMNH (mejor remuneración mensual, normal y habitual — art. 245
+   * LCT) del histórico de `RemuneracionMensual` cargado para el caso, en vez de
+   * un único número tipeado a mano. Traduce `SinRemuneracionesError` a un 400
+   * claro para el auditor.
+   */
+  private calcularMRMNHDelCaso(
+    remuneraciones: { periodo: Date; conceptosRemunerativos: Prisma.Decimal; esNormalYHabitual: boolean }[],
+    fechaIngreso: Date,
+    fechaEgreso: Date,
+  ) {
+    try {
+      return calcularMRMNH(
+        remuneraciones.map((r) => ({
+          periodo: r.periodo,
+          conceptosRemunerativos: Number(r.conceptosRemunerativos),
+          esNormalYHabitual: r.esNormalYHabitual,
+        })),
+        fechaIngreso,
+        fechaEgreso,
+      );
+    } catch (error) {
+      if (error instanceof SinRemuneracionesError) throw new BadRequestException(error.message);
+      throw error;
+    }
   }
 }

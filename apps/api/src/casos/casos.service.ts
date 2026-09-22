@@ -29,6 +29,7 @@ export class CasosService {
         empleado: true,
         variables: true,
         documentos: true,
+        remuneracionesMensuales: { orderBy: { periodo: 'asc' } },
         liquidaciones: { include: { rubros: { include: { rubro: true } } } },
         auditorias: { include: { hallazgos: { include: { rubro: true } } }, orderBy: { fecha: 'desc' } },
       },

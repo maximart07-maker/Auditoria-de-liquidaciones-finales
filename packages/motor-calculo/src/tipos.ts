@@ -64,6 +64,26 @@ export interface RubroCalculado {
   detalle: Record<string, unknown>;
 }
 
+/** Un mes de remuneración cargado por el auditor (manual u OCR de recibos de
+ * sueldo), base para derivar la MRMNH — ver `calcularMRMNH`. */
+export interface RemuneracionMensual {
+  /** Primer día del mes al que corresponde la remuneración. */
+  periodo: Date;
+  /** Suma de conceptos remunerativos del mes (básico, horas extra, comisiones,
+   * premios habituales, etc.) — excluye lo no remunerativo. */
+  conceptosRemunerativos: number;
+  /** false si el mes está distorsionado por algo excepcional (retroactivo,
+   * liquidación de vacaciones, etc.) y no debe competir por ser la "mejor". */
+  esNormalYHabitual: boolean;
+}
+
+export interface MRMNHCalculada {
+  valor: number;
+  periodoSeleccionado: Date;
+  mesesConsiderados: number;
+  detalle: Record<string, unknown>;
+}
+
 export interface LiquidacionCalculada {
   origen: 'sistema';
   fechaCalculo: Date;

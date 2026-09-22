@@ -4,6 +4,7 @@ export * from './parametros';
 export * from './motor';
 export * from './comparacion';
 export * from './validaciones/tope-indemnizatorio';
+export * from './mrmnh';
 
 export { calcularIndemnizacionAntiguedad } from './rubros/indemnizacion-antiguedad';
 export { calcularPreaviso } from './rubros/preaviso';

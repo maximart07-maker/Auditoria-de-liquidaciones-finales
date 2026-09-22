@@ -83,9 +83,26 @@ export interface Auditoria {
   hallazgos: Hallazgo[];
 }
 
+export interface RemuneracionMensual {
+  id: string;
+  periodo: string;
+  conceptosRemunerativos: string;
+  esNormalYHabitual: boolean;
+  detalle: Record<string, number> | null;
+  fuente: 'manual' | 'ocr' | 'importado';
+}
+
+export interface UpsertRemuneracionMensual {
+  conceptosRemunerativos: number;
+  esNormalYHabitual?: boolean;
+  detalle?: Record<string, number>;
+  fuente?: 'manual' | 'ocr' | 'importado';
+}
+
 export interface CasoDetalle extends Caso {
   variables: VariableCaso[];
   documentos: Documento[];
+  remuneracionesMensuales: RemuneracionMensual[];
   liquidaciones: Liquidacion[];
   auditorias: Auditoria[];
 }
@@ -125,4 +142,11 @@ export const apiClient = {
     }),
   eliminarConfiguracionRubro: (clienteId: string, codigoRubro: string) =>
     request<void>(`/clientes/${clienteId}/configuraciones-rubro/${codigoRubro}`, { method: 'DELETE' }),
+  guardarRemuneracionMensual: (casoId: string, periodo: string, dto: UpsertRemuneracionMensual) =>
+    request<RemuneracionMensual>(`/casos/${casoId}/remuneraciones-mensuales/${periodo}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    }),
+  eliminarRemuneracionMensual: (casoId: string, periodo: string) =>
+    request<void>(`/casos/${casoId}/remuneraciones-mensuales/${periodo}`, { method: 'DELETE' }),
 };

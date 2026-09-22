@@ -36,7 +36,7 @@ interface VariablesCaso {
   fechaEgreso: Date;
   tipoExtincion: 'despido_sin_causa' | 'despido_con_causa' | 'renuncia'
                | 'mutuo_acuerdo' | 'vencimiento_contrato' | 'fallecimiento';
-  mejorRemuneracionMensualNormalYHabitual: number;  // "MRMNH", base del art. 245
+  mejorRemuneracionMensualNormalYHabitual: number;  // "MRMNH", base del art. 245 — ver §2.1, no se carga a mano
   sueldoMensualActual: number;                       // para SAC/vacaciones si difiere de MRMNH
   diasVacacionesGozadosEnElAnio: number;
   diasVacacionesPendientesPeriodosAnteriores: number; // deuda de vacaciones de años anteriores (opcional, default 0)
@@ -44,6 +44,31 @@ interface VariablesCaso {
   convenioColectivo: string;
 }
 ```
+
+### 2.1 De dónde sale la MRMNH: histórico mensual de remuneraciones
+
+`mejorRemuneracionMensualNormalYHabitual` **no se carga como un número suelto**: el auditor carga el histórico mensual de remuneraciones del caso (`RemuneracionMensual` — básico, horas extra, comisiones, premios habituales, etc., manual u OCR de recibos de sueldo) y el motor deriva la MRMNH de forma pura, trazable y reproducible con `calcularMRMNH`, siguiendo el art. 245 LCT: el mayor mes remunerativo y habitual devengado durante el **último año trabajado**, o durante el tiempo de prestación de servicios si éste fuera menor a un año.
+
+```ts
+interface RemuneracionMensual {
+  periodo: Date;                  // primer día del mes
+  conceptosRemunerativos: number; // suma de lo remunerativo del mes (excluye lo no remunerativo)
+  esNormalYHabitual: boolean;     // false = mes distorsionado (retroactivo, liquidación de vacaciones) — se excluye
+}
+
+function calcularMRMNH(remuneraciones: RemuneracionMensual[], fechaIngreso: Date, fechaEgreso: Date): MRMNHCalculada {
+  const inicioVentana = maxFecha(fechaIngreso, sumarMeses(fechaEgreso, -12));
+  const enVentana = remuneraciones.filter(
+    (r) => r.esNormalYHabitual && r.periodo >= inicioVentana && r.periodo <= fechaEgreso,
+  );
+  if (enVentana.length === 0) throw new SinRemuneracionesError();
+
+  const mejor = enVentana.reduce((max, r) => (r.conceptosRemunerativos > max.conceptosRemunerativos ? r : max));
+  return { valor: mejor.conceptosRemunerativos, periodoSeleccionado: mejor.periodo, mesesConsiderados: enVentana.length, detalle: {...} };
+}
+```
+
+`AuditoriasService.ejecutar()` llama a `calcularMRMNH` con el histórico cargado para el caso (`RemuneracionMensual`, incluido en la consulta del `Caso`) antes de armar el resto de `VariablesCaso`; si no hay ningún mes normal/habitual dentro de la ventana, devuelve 400 con un mensaje claro para el auditor en vez de dejar auditar con un dato faltante. Es obligatorio: sin al menos un mes cargado, la auditoría no puede ejecutarse.
 
 ## 3. Rubros aplicables según tipo de extinción
 

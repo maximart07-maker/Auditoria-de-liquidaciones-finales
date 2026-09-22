@@ -4,8 +4,17 @@ import { useState } from 'react';
 import { CasoDetalle } from '@/lib/api-client';
 import { EstadoBadge } from './ui/estado-badge';
 import { SeveridadBadge } from './ui/severidad-badge';
+import { RemuneracionesMensuales } from './remuneraciones-mensuales';
 
-const TABS = ['Datos base', 'Documentos', 'Variables', 'Liquidación empresa', 'Auditoría', 'Informe'] as const;
+const TABS = [
+  'Datos base',
+  'Remuneraciones',
+  'Documentos',
+  'Variables',
+  'Liquidación empresa',
+  'Auditoría',
+  'Informe',
+] as const;
 type Tab = (typeof TABS)[number];
 
 /** Ficha de caso con navegación por tabs — ver docs/flujo-ux.md §2 "Paso 4". */
@@ -48,6 +57,10 @@ export function CasoTabs({ caso }: { caso: CasoDetalle }) {
             <span className="text-slate-500">Estado:</span> <EstadoBadge estado={caso.estado} />
           </p>
         </div>
+      )}
+
+      {tabActiva === 'Remuneraciones' && (
+        <RemuneracionesMensuales casoId={caso.id} inicial={caso.remuneracionesMensuales} />
       )}
 
       {tabActiva === 'Documentos' && (

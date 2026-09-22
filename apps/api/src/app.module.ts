@@ -10,6 +10,7 @@ import { RubrosModule } from './rubros/rubros.module';
 import { LiquidacionesModule } from './liquidaciones/liquidaciones.module';
 import { AuditoriasModule } from './auditorias/auditorias.module';
 import { ConfiguracionesRubroModule } from './configuraciones-rubro/configuraciones-rubro.module';
+import { RemuneracionesMensualesModule } from './remuneraciones-mensuales/remuneraciones-mensuales.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ConfiguracionesRubroModule } from './configuraciones-rubro/configuracio
     LiquidacionesModule,
     AuditoriasModule,
     ConfiguracionesRubroModule,
+    RemuneracionesMensualesModule,
   ],
 })
 export class AppModule {}
