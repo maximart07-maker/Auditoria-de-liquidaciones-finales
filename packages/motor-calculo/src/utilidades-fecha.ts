@@ -15,6 +15,19 @@ export function maxFecha(a: Date, b: Date): Date {
   return a.getTime() > b.getTime() ? a : b;
 }
 
+/** Cuenta días bajo la convención comercial (mes de 30 días, año de 360), variante
+ * 30E/360: cada mes calendario cuenta como 30 días sin importar su duración real
+ * (28 a 31), así que cualquier semestre equivale siempre a 180 días. Usada para el
+ * SAC proporcional (Ley 23.041), a diferencia de `diasEntre` que cuenta días
+ * calendario reales. */
+export function diasEntreComercial(desde: Date, hasta: Date): number {
+  const anios = hasta.getUTCFullYear() - desde.getUTCFullYear();
+  const meses = hasta.getUTCMonth() - desde.getUTCMonth();
+  const diaDesde = Math.min(desde.getUTCDate(), 30);
+  const diaHasta = Math.min(hasta.getUTCDate(), 30);
+  return anios * 360 + meses * 30 + (diaHasta - diaDesde);
+}
+
 export function diasEnElMes(fecha: Date): number {
   return utc(fecha.getUTCFullYear(), fecha.getUTCMonth() + 1, 0).getUTCDate();
 }

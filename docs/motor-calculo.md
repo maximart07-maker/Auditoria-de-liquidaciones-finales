@@ -126,22 +126,33 @@ sino:
 
 ### 4.4 SAC proporcional (aguinaldo, Ley 23.041)
 
+Se computa bajo la **convención comercial** (mes de 30 días, año de 360 — variante 30E/360), no con días calendario reales: cada semestre equivale siempre a 180 días, sin importar meses de 28 a 31 días ni años bisiestos.
+
 ```
 semestre = obtenerSemestre(fechaEgreso)               // 1/1–30/6 o 1/7–31/12
-diasTrabajadosEnSemestre = diasEntre(inicioSemestre o fechaIngreso (lo que sea posterior), fechaEgreso)
-diasTotalesSemestre = diasEntre(inicioSemestre, finSemestre)
+diasTrabajadosEnSemestre = diasEntreComercial(inicioSemestre o fechaIngreso (lo que sea posterior), fechaEgreso)
+diasTotalesSemestre = diasEntreComercial(inicioSemestre, finSemestre)   // siempre 180
 
 sacProporcional = (mejorRemuneracionDelSemestre / 2) * (diasTrabajadosEnSemestre / diasTotalesSemestre)
 ```
 
 ```ts
+// mes de 30 días / año de 360 (30E/360): el día 31 se trata como 30 en ambas puntas
+function diasEntreComercial(desde: Date, hasta: Date): number {
+  const anios = hasta.getUTCFullYear() - desde.getUTCFullYear();
+  const meses = hasta.getUTCMonth() - desde.getUTCMonth();
+  const diaDesde = Math.min(desde.getUTCDate(), 30);
+  const diaHasta = Math.min(hasta.getUTCDate(), 30);
+  return anios * 360 + meses * 30 + (diaHasta - diaDesde);
+}
+
 function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
   const { inicio, fin } = semestreDe(v.fechaEgreso);
   const desde = maxFecha(inicio, v.fechaIngreso);
-  const diasTrabajados = diasEntre(desde, v.fechaEgreso) + 1;
-  const diasTotales = diasEntre(inicio, fin) + 1;
+  const diasTrabajados = diasEntreComercial(desde, v.fechaEgreso) + 1;
+  const diasTotales = diasEntreComercial(inicio, fin) + 1; // siempre 180
   const monto = (v.mejorRemuneracionMensualNormalYHabitual / 2) * (diasTrabajados / diasTotales);
-  return { rubro: 'SAC_PROP', monto, detalle: { diasTrabajados, diasTotales } };
+  return { rubro: 'SAC_PROP', monto, detalle: { diasTrabajados, diasTotales, convencion: '30/360' } };
 }
 ```
 
