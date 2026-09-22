@@ -29,7 +29,7 @@ packages/
   motor-calculo/  → Lógica pura de cálculo/auditoría (@audit/motor-calculo), sin dependencias de framework
 ```
 
-`@audit/motor-calculo` implementa las fórmulas descriptas en `docs/motor-calculo.md` (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas, multas) con 18 tests unitarios (`npm run test --workspace packages/motor-calculo`). El backend lo consume en `apps/api/src/auditorias` para generar la `Liquidacion` de origen "sistema" y los `Hallazgo` de cada auditoría.
+`@audit/motor-calculo` implementa las fórmulas descriptas en `docs/motor-calculo.md` (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas) con tests unitarios (`npm run test --workspace packages/motor-calculo`). El backend lo consume en `apps/api/src/auditorias` para generar la `Liquidacion` de origen "sistema" y los `Hallazgo` de cada auditoría.
 
 ## Puesta en marcha local
 

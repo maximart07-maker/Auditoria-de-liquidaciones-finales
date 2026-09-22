@@ -15,7 +15,7 @@ describe('calcularLiquidacionSistema', () => {
     expect(liquidacion.total).toBeGreaterThan(0);
   });
 
-  it('en una renuncia no incluye indemnización, preaviso ni multas', () => {
+  it('en una renuncia no incluye indemnización ni preaviso', () => {
     const v = variablesBase({ tipoExtincion: 'renuncia' });
 
     const liquidacion = calcularLiquidacionSistema(v);
@@ -24,24 +24,7 @@ describe('calcularLiquidacionSistema', () => {
     expect(codigos).not.toContain('IND_ANTIGUEDAD');
     expect(codigos).not.toContain('PREAVISO');
     expect(codigos).not.toContain('INTEGRACION_MES');
-    expect(codigos).not.toContain('MULTA_ART2_25323');
     expect(codigos).toContain('SAC_PROP');
-  });
-
-  it('la multa art. 2 ley 25.323 solo aparece con intimación de pago incumplida en un despido sin causa', () => {
-    const sinIntimacion = calcularLiquidacionSistema(variablesBase({ intimacionPagoCursada: false }));
-    const conIntimacion = calcularLiquidacionSistema(variablesBase({ intimacionPagoCursada: true }));
-
-    expect(sinIntimacion.rubros.map((r) => r.rubro)).not.toContain('MULTA_ART2_25323');
-    expect(conIntimacion.rubros.map((r) => r.rubro)).toContain('MULTA_ART2_25323');
-  });
-
-  it('la multa art. 1 ley 25.323 no se aplica en una renuncia aunque haya registración deficiente', () => {
-    const v = variablesBase({ tipoExtincion: 'renuncia', registracionDeficiente: true });
-
-    const liquidacion = calcularLiquidacionSistema(v);
-
-    expect(liquidacion.rubros.map((r) => r.rubro)).not.toContain('MULTA_ART1_25323');
   });
 
   it('lanza un error si no hay parámetros normativos cargados para el convenio', () => {

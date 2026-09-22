@@ -12,10 +12,7 @@ export type CodigoRubro =
   | 'INTEGRACION_MES'
   | 'SAC_PROP'
   | 'VAC_NO_GOZADAS'
-  | 'SAC_S_VAC'
-  | 'MULTA_ART2_25323'
-  | 'MULTA_ART1_25323'
-  | 'MULTA_ART80';
+  | 'SAC_S_VAC';
 
 /** Datos base del caso necesarios para calcular los rubros. Todo campo variable
  * (montos, fechas, banderas de intimación) proviene de `Variable_Caso` en el modelo de datos. */
@@ -29,10 +26,6 @@ export interface VariablesCaso {
   sueldoMensualActual: number;
   diasVacacionesGozadosEnElAnio: number;
   preavisoOtorgado: boolean;
-  intimacionPagoCursada: boolean;
-  intimacionCertificadosCursada: boolean;
-  certificadosEntregados: boolean;
-  registracionDeficiente: boolean;
   convenioColectivo: string;
 }
 

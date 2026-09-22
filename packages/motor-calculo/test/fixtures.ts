@@ -13,10 +13,6 @@ export function variablesBase(overrides: Partial<VariablesCaso> = {}): Variables
     sueldoMensualActual: 100_000,
     diasVacacionesGozadosEnElAnio: 0,
     preavisoOtorgado: false,
-    intimacionPagoCursada: false,
-    intimacionCertificadosCursada: false,
-    certificadosEntregados: true,
-    registracionDeficiente: false,
     convenioColectivo: 'GENERICO',
     ...overrides,
   };

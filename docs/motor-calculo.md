@@ -40,9 +40,6 @@ interface VariablesCaso {
   sueldoMensualActual: number;                       // para SAC/vacaciones si difiere de MRMNH
   diasVacacionesGozadosEnElAnio: number;
   preavisoOtorgado: boolean;
-  intimacionPagoCursada: boolean;      // para multa art. 2 ley 25.323
-  certificadosEntregados: boolean;     // para multa art. 80 LCT
-  registracionDeficiente: boolean;     // para multa art. 1 ley 25.323
   convenioColectivo: string;
 }
 ```
@@ -59,18 +56,16 @@ El motor no calcula "todos los rubros siempre": primero resuelve qué rubros cor
 | SAC proporcional | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Vacaciones no gozadas | ✅ | ✅ | ✅ | ✅ | ✅ |
 | SAC s/vacaciones no gozadas | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Multa art. 2 ley 25.323 | ✅ (si hay intimación previa incumplida) | ❌ | ❌ | ❌ | ❌ |
-| Multa art. 1 ley 25.323 | ✅ (si `registracionDeficiente`) | ✅ | ✅ | ✅ | ✅ |
-| Multa art. 80 LCT | ✅ (si no entregó certificados tras intimación) | ✅ | ✅ | ✅ | ✅ |
+
+> Las multas de la Ley 25.323 (arts. 1 y 2) y del art. 80 LCT se dieron de baja del motor de cálculo — ver nota al final de §4.
 
 ```ts
 function rubrosAplicables(tipoExtincion: string): string[] {
   const base = ['SAC_PROP', 'VAC_NO_GOZADAS', 'SAC_S_VAC'];
   if (tipoExtincion === 'despido_sin_causa') {
-    return [...base, 'IND_ANTIGUEDAD', 'PREAVISO', 'INTEGRACION_MES',
-            'MULTA_ART2_25323', 'MULTA_ART1_25323', 'MULTA_ART80'];
+    return [...base, 'IND_ANTIGUEDAD', 'PREAVISO', 'INTEGRACION_MES'];
   }
-  return [...base, 'MULTA_ART1_25323', 'MULTA_ART80']; // condicionadas a flags del caso
+  return base;
 }
 ```
 
@@ -172,36 +167,17 @@ vacacionesNoGozadas = max(diasNoGozados, 0) * valorDia
 sacSobreVacaciones = vacacionesNoGozadas / 12
 ```
 
-### 4.7 Multa art. 2 Ley 25.323 (falta de pago en término)
-
-```
-si tipoExtincion == 'despido_sin_causa'
-   y intimacionPagoCursada == true
-   y la empresa no pagó la indemnización dentro del plazo legal:
-       multaArt2 = (indemnizacionAntiguedad + montoPreaviso + integracionMes) * 0.5
-sino:
-    multaArt2 = 0
-```
-
-### 4.8 Multa art. 1 Ley 25.323 (registración deficiente o ausente)
-
-```
-si registracionDeficiente == true:
-    multaArt1 = indemnizacionAntiguedad * 1.0   // duplica la indemnización por antigüedad
-sino:
-    multaArt1 = 0
-```
-
-### 4.9 Multa art. 80 LCT (falta de entrega de certificados de trabajo)
-
-```
-si certificadosEntregados == false
-   y hanTranscurrido30DiasHabilesDesdeExtincion(fechaEgreso)
-   y intimacionCertificadosCursada == true:
-       multaArt80 = MRMNH * 3
-sino:
-    multaArt80 = 0
-```
+> **Multas dadas de baja (2026-09-22):** el motor calculaba además las multas del
+> art. 2 Ley 25.323 (falta de pago en término), art. 1 Ley 25.323 (registración
+> deficiente) y art. 80 LCT (falta de entrega de certificados). Se quitaron del
+> motor de cálculo por decisión de producto: `packages/motor-calculo/src/rubros/multas.ts`
+> se eliminó, `CodigoRubro` ya no incluye `MULTA_ART2_25323` / `MULTA_ART1_25323` /
+> `MULTA_ART80`, y `VariablesCaso` perdió los flags que solo alimentaban esas
+> fórmulas (`intimacionPagoCursada`, `intimacionCertificadosCursada`,
+> `certificadosEntregados`, `registracionDeficiente`). En la base de datos los
+> `Rubro` correspondientes se marcaron `activo=false` (no se borraron, para no
+> romper `LiquidacionRubro`/`Hallazgo` de auditorías históricas que ya los
+> referencian) — ver `apps/api/prisma/seed.ts`.
 
 ## 5. Orquestador del motor
 

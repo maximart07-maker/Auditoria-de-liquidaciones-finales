@@ -61,6 +61,9 @@ export class ConfiguracionesRubroService {
         },
       });
     }
+    if (!rubro.activo) {
+      throw new BadRequestException(`El rubro "${codigoRubro}" fue dado de baja del catálogo y ya no admite configuración.`);
+    }
 
     this.validarContraLegislacion(rubro, dto);
 

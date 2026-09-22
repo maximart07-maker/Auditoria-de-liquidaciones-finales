@@ -11,4 +11,3 @@ export { calcularIntegracionMes } from './rubros/integracion-mes';
 export { calcularSACProporcional } from './rubros/sac-proporcional';
 export { calcularVacacionesNoGozadas } from './rubros/vacaciones-no-gozadas';
 export { calcularSACSobreVacaciones } from './rubros/sac-sobre-vacaciones';
-export { calcularMultaArt1Ley25323, calcularMultaArt2Ley25323, calcularMultaArt80 } from './rubros/multas';

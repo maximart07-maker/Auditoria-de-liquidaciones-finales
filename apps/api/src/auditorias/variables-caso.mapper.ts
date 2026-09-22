@@ -10,10 +10,6 @@ const CLAVES_REQUERIDAS = [
   'sueldoMensualActual',
   'diasVacacionesGozadosEnElAnio',
   'preavisoOtorgado',
-  'intimacionPagoCursada',
-  'intimacionCertificadosCursada',
-  'certificadosEntregados',
-  'registracionDeficiente',
 ] as const;
 
 function aBooleano(valor: string): boolean {
@@ -55,10 +51,6 @@ export function variablesCasoDesde(
       mapa.get('diasVacacionesGozadosEnElAnio')!,
     ),
     preavisoOtorgado: aBooleano(mapa.get('preavisoOtorgado')!),
-    intimacionPagoCursada: aBooleano(mapa.get('intimacionPagoCursada')!),
-    intimacionCertificadosCursada: aBooleano(mapa.get('intimacionCertificadosCursada')!),
-    certificadosEntregados: aBooleano(mapa.get('certificadosEntregados')!),
-    registracionDeficiente: aBooleano(mapa.get('registracionDeficiente')!),
     convenioColectivo: empleado.convenioColectivo ?? 'GENERICO',
   };
 }

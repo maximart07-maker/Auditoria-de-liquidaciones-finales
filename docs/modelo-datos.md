@@ -83,7 +83,7 @@ erDiagram
     }
     RUBRO {
         uuid id PK
-        string codigo "IND_ANTIGUEDAD | PREAVISO | INTEGRACION_MES | SAC_PROP | VAC_NO_GOZADAS | SAC_S_VAC | MULTA_ART2_25323 | MULTA_ART80"
+        string codigo "IND_ANTIGUEDAD | PREAVISO | INTEGRACION_MES | SAC_PROP | VAC_NO_GOZADAS | SAC_S_VAC | (más conceptos variables por cliente)"
         string nombre
         string base_legal
         boolean activo
@@ -290,6 +290,6 @@ CREATE TABLE informe (
 
 ## 4. Próximos pasos de modelado
 
-- Definir catálogo inicial de `Rubro` (mínimo viable: indemnización por antigüedad, preaviso, integración mes de despido, SAC proporcional, vacaciones no gozadas, SAC s/vacaciones, multas art. 2 ley 25.323 y art. 80 LCT).
+- Definir catálogo inicial de `Rubro` (mínimo viable: indemnización por antigüedad, preaviso, integración mes de despido, SAC proporcional, vacaciones no gozadas, SAC s/vacaciones). El cálculo de multas (art. 1/2 Ley 25.323, art. 80 LCT) se dio de baja del motor — ver docs/motor-calculo.md §4.
 - Tabla de **parámetros normativos versionados** (topes indemnizatorios, RIPTE, índices) separada de `Rubro`, para que el motor de cálculo lea valores vigentes a la `fecha_extincion` del caso — se documentará junto al motor de cálculo.
 - Definir política de reintento/errores para `Documento` en estado `error` (reprocesamiento manual vs. automático).
