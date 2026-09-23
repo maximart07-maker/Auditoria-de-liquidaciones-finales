@@ -3,7 +3,7 @@ import { calcularSACProporcional } from '../src/rubros/sac-proporcional';
 import { variablesBase, utc } from './fixtures';
 
 describe('calcularSACProporcional', () => {
-  it('da la mitad de la mejor remuneración cuando se trabajó el semestre completo', () => {
+  it('da la mitad de la mejor remuneración cuando se trabajó el semestre completo (180/360, no 100%)', () => {
     const v = variablesBase({
       fechaIngreso: utc(2020, 1, 1),
       fechaEgreso: utc(2024, 6, 30),
@@ -12,7 +12,9 @@ describe('calcularSACProporcional', () => {
 
     const resultado = calcularSACProporcional(v);
 
-    expect(resultado.monto).toBeCloseTo(60_000, 2);
+    expect(resultado.detalle.diasTrabajados).toBe(180);
+    expect(resultado.detalle.diasDelAnio).toBe(360);
+    expect(resultado.monto).toBeCloseTo(60_000, 2); // 50%, no el 100% de 120.000
   });
 
   it('prorratea cuando el ingreso ocurre dentro del semestre, con meses de 30 días', () => {
@@ -25,7 +27,7 @@ describe('calcularSACProporcional', () => {
     const resultado = calcularSACProporcional(v);
 
     expect(resultado.detalle.diasTrabajados).toBe(90);
-    expect(resultado.detalle.diasTotales).toBe(180);
+    expect(resultado.detalle.diasTotalesSemestre).toBe(180);
     expect(resultado.monto).toBeCloseTo(30_000, 2);
   });
 
@@ -43,7 +45,7 @@ describe('calcularSACProporcional', () => {
     const resultado = calcularSACProporcional(v);
 
     expect(resultado.detalle.diasTrabajados).toBe(150);
-    expect(resultado.detalle.diasTotales).toBe(180);
+    expect(resultado.detalle.diasTotalesSemestre).toBe(180);
     expect(resultado.monto).toBeCloseTo(50_000, 2);
   });
 });

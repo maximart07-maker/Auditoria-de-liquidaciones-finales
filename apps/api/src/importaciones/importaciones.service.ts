@@ -9,6 +9,10 @@ import { normalizarCodigoConcepto, parsearConceptosCliente } from './conceptos-c
 interface MesAgregado {
   conceptosRemunerativos: number;
   conceptosNoRemunerativos: number;
+  /** Base del SAC proporcional (arts. 121-123 LCT) — ver
+   * ImportacionesService.remuneracionDevengadaSacDeRecibo, misma idea acá pero
+   * fila por fila de nómina en vez de conceptos de un recibo. */
+  remuneracionDevengadaSac: number;
   detalleConceptos: { concepto: string; monto: number; tipo: string }[];
   /** true si algún renglón del mes viene de un proceso de "ajuste" (retroactivo) —
    * ver ResumenImportacion.esNormalYHabitual más abajo. */
@@ -101,12 +105,43 @@ export class ImportacionesService {
     };
   }
 
-  /** Trae el catálogo de conceptos del cliente como un mapa código→baseIndemnizacion,
-   * para que los importadores de nómina/recibo lo usen sin repetir la consulta
-   * por cada fila. Mapa vacío si el cliente todavía no importó su catálogo. */
-  private async obtenerCatalogoConceptos(clienteId: string): Promise<Map<string, boolean>> {
+  /** Trae el catálogo de conceptos del cliente como un mapa código→{baseIndemnizacion,
+   * tipo}, para que los importadores de nómina/recibo lo usen sin repetir la
+   * consulta por cada fila. `baseIndemnizacion` decide la base del art. 245
+   * (§2.4); `tipo` (Remunerativo/No remunerativo/Descuento) decide, junto con
+   * `rubroParaConcepto`, la base del SAC proporcional (§2.1) — son preguntas
+   * legales distintas sobre el mismo concepto. Mapa vacío si el cliente
+   * todavía no importó su catálogo. */
+  private async obtenerCatalogoConceptos(clienteId: string): Promise<Map<string, { baseIndemnizacion: boolean; tipo: string }>> {
     const conceptos = await this.prisma.conceptoCliente.findMany({ where: { clienteId } });
-    return new Map(conceptos.map((c) => [c.codigo, c.baseIndemnizacion]));
+    return new Map(conceptos.map((c) => [c.codigo, { baseIndemnizacion: c.baseIndemnizacion, tipo: c.tipo }]));
+  }
+
+  /**
+   * Remuneración devengada del mes para el SAC proporcional (arts. 121-123
+   * LCT, Ley 23.041) — distinta de `conceptosRemunerativos` (art. 245): acá sí
+   * se netean los descuentos por mes parcial (p.ej. días no trabajados,
+   * descuento por ingreso/egreso), porque el SAC se calcula sobre lo
+   * efectivamente devengado ese mes, no sobre el sueldo "normal" del mes. Se
+   * excluye el propio SAC proporcional del recibo (evita circularidad: no se
+   * puede usar el SAC ya liquidado para calcular la base del SAC). Con
+   * catálogo, usa `tipo === 'remunerativo'`; sin catálogo, cae al total
+   * "Remunerativo" impreso del recibo (que ya neta esos descuentos) menos el
+   * SAC proporcional detectado por nombre.
+   */
+  private remuneracionDevengadaSacDeRecibo(
+    recibo: { conceptos: { codigo: string; concepto: string; monto: number }[]; remunerativo: number },
+    catalogo: Map<string, { baseIndemnizacion: boolean; tipo: string }>,
+  ): number {
+    if (catalogo.size > 0) {
+      return recibo.conceptos
+        .filter((c) => catalogo.get(normalizarCodigoConcepto(c.codigo))?.tipo === 'remunerativo' && !rubroParaConcepto(c.concepto))
+        .reduce((total, c) => total + c.monto, 0);
+    }
+    const sacDelRecibo = recibo.conceptos
+      .filter((c) => rubroParaConcepto(c.concepto) === 'SAC_PROP')
+      .reduce((total, c) => total + c.monto, 0);
+    return recibo.remunerativo - sacDelRecibo;
   }
 
   async importarNomina(clienteId: string, buffer: Buffer): Promise<ResumenImportacion> {
@@ -138,12 +173,14 @@ export class ImportacionesService {
               empleadoId,
               periodo: new Date(periodoIso),
               conceptosRemunerativos: agregado.conceptosRemunerativos,
+              remuneracionDevengadaSac: agregado.remuneracionDevengadaSac,
               esNormalYHabitual: !agregado.tieneAjuste,
               detalle: { conceptos: agregado.detalleConceptos, conceptosNoRemunerativos: agregado.conceptosNoRemunerativos },
               fuente: 'importado',
             },
             update: {
               conceptosRemunerativos: agregado.conceptosRemunerativos,
+              remuneracionDevengadaSac: agregado.remuneracionDevengadaSac,
               esNormalYHabitual: !agregado.tieneAjuste,
               detalle: { conceptos: agregado.detalleConceptos, conceptosNoRemunerativos: agregado.conceptosNoRemunerativos },
               fuente: 'importado',
@@ -183,9 +220,10 @@ export class ImportacionesService {
     const baseCalculadaConCatalogo = catalogo.size > 0;
     const conceptosRemunerativos = baseCalculadaConCatalogo
       ? recibo.conceptos
-          .filter((c) => catalogo.get(normalizarCodigoConcepto(c.codigo)) === true)
+          .filter((c) => catalogo.get(normalizarCodigoConcepto(c.codigo))?.baseIndemnizacion === true)
           .reduce((total, c) => total + c.monto, 0)
       : recibo.remunerativo;
+    const remuneracionDevengadaSac = this.remuneracionDevengadaSacDeRecibo(recibo, catalogo);
     // `recibo.esPeriodoAtipico` marca meses parciales por los conceptos de ajuste
     // que trae el propio recibo (días no trabajados, descuento por ingreso/egreso
     // — típicos de una liquidación final). Con catálogo, esos conceptos de ajuste
@@ -221,12 +259,14 @@ export class ImportacionesService {
         empleadoId,
         periodo: recibo.periodo,
         conceptosRemunerativos,
+        remuneracionDevengadaSac,
         esNormalYHabitual,
         detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
         fuente: 'importado',
       },
       update: {
         conceptosRemunerativos,
+        remuneracionDevengadaSac,
         esNormalYHabitual,
         detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
         fuente: 'importado',
@@ -288,15 +328,20 @@ export class ImportacionesService {
    * preciso que el `TIPO` de la fila (un concepto puede ser remunerativo y no
    * entrar en la base, p.ej. el SAC) — y solo cae al `TIPO='REMU'` de la fila
    * si ese código no está en el catálogo del cliente (o el cliente no
-   * importó ninguno todavía). Marca `tieneAjuste=true` si algún renglón del
-   * mes viene de un proceso de liquidación cuyo nombre contiene "ajuste"
-   * (heurística: un ajuste/retroactivo suele distorsionar el mes y no
-   * debería competir por ser la "mejor" remuneración — el auditor puede
+   * importó ninguno todavía). `remuneracionDevengadaSac` (base del SAC
+   * proporcional, arts. 121-123) usa `catalogo.tipo === 'remunerativo'` en vez
+   * de `baseIndemnizacion` (son preguntas legales distintas, ver
+   * `remuneracionDevengadaSacDeRecibo`) y excluye las filas cuyo concepto
+   * mapea a un rubro de liquidación final (`rubroParaConcepto`, p.ej. el
+   * propio SAC) para evitar circularidad. Marca `tieneAjuste=true` si algún
+   * renglón del mes viene de un proceso de liquidación cuyo nombre contiene
+   * "ajuste" (heurística: un ajuste/retroactivo suele distorsionar el mes y
+   * no debería competir por ser la "mejor" remuneración — el auditor puede
    * revisar y corregir el flag a mano después).
    */
   private agruparPorEmpleadoYPeriodo(
     filas: FilaNominaImportada[],
-    catalogo: Map<string, boolean>,
+    catalogo: Map<string, { baseIndemnizacion: boolean; tipo: string }>,
   ): Map<string, DatosEmpleado> {
     const porCuil = new Map<string, DatosEmpleado>();
 
@@ -310,14 +355,24 @@ export class ImportacionesService {
       const periodoIso = fila.periodo.toISOString().slice(0, 10);
       let agregado = datosEmpleado.meses.get(periodoIso);
       if (!agregado) {
-        agregado = { conceptosRemunerativos: 0, conceptosNoRemunerativos: 0, detalleConceptos: [], tieneAjuste: false };
+        agregado = {
+          conceptosRemunerativos: 0,
+          conceptosNoRemunerativos: 0,
+          remuneracionDevengadaSac: 0,
+          detalleConceptos: [],
+          tieneAjuste: false,
+        };
         datosEmpleado.meses.set(periodoIso, agregado);
       }
 
-      const baseIndemnizacion = catalogo.get(normalizarCodigoConcepto(fila.codigo));
-      const cuentaParaBase = baseIndemnizacion ?? fila.tipo === 'REMU';
+      const infoConcepto = catalogo.get(normalizarCodigoConcepto(fila.codigo));
+      const cuentaParaBase = infoConcepto?.baseIndemnizacion ?? fila.tipo === 'REMU';
       if (cuentaParaBase) agregado.conceptosRemunerativos += fila.monto;
       else agregado.conceptosNoRemunerativos += fila.monto;
+
+      const esRemunerativoParaSac = infoConcepto ? infoConcepto.tipo === 'remunerativo' : fila.tipo === 'REMU';
+      if (esRemunerativoParaSac && !rubroParaConcepto(fila.concepto)) agregado.remuneracionDevengadaSac += fila.monto;
+
       agregado.detalleConceptos.push({ concepto: fila.concepto, monto: fila.monto, tipo: fila.tipo });
       if (/ajuste/i.test(fila.proceso)) agregado.tieneAjuste = true;
     }

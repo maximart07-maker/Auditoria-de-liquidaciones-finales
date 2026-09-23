@@ -1,5 +1,13 @@
-import { RemuneracionMensual } from './tipos';
 import { semestreDe } from './utilidades-fecha';
+
+/** Un mes de remuneración con la base propia del SAC proporcional (distinta de
+ * `RemuneracionMensual.conceptosRemunerativos`, que es la base del art. 245 —
+ * ver `remuneracionDevengadaSac` y docs/motor-calculo.md §2.1). */
+export interface RemuneracionMensualParaSAC {
+  periodo: Date;
+  remuneracionDevengadaSac: number;
+  esNormalYHabitual: boolean;
+}
 
 export class SinRemuneracionesSemestreError extends Error {
   constructor(inicio: Date, fin: Date) {
@@ -29,7 +37,7 @@ export interface BaseSACCalculada {
  * últimos 12 meses trabajados, esta base solo mira el semestre vigente al
  * egreso — son dos ventanas y, en general, dos valores distintos.
  */
-export function calcularBaseSAC(remuneraciones: RemuneracionMensual[], fechaEgreso: Date): BaseSACCalculada {
+export function calcularBaseSAC(remuneraciones: RemuneracionMensualParaSAC[], fechaEgreso: Date): BaseSACCalculada {
   const { inicio, fin } = semestreDe(fechaEgreso);
 
   const enVentana = remuneraciones.filter(
@@ -40,10 +48,10 @@ export function calcularBaseSAC(remuneraciones: RemuneracionMensual[], fechaEgre
     throw new SinRemuneracionesSemestreError(inicio, fin);
   }
 
-  const mejor = enVentana.reduce((max, r) => (r.conceptosRemunerativos > max.conceptosRemunerativos ? r : max));
+  const mejor = enVentana.reduce((max, r) => (r.remuneracionDevengadaSac > max.remuneracionDevengadaSac ? r : max));
 
   return {
-    valor: mejor.conceptosRemunerativos,
+    valor: mejor.remuneracionDevengadaSac,
     periodoSeleccionado: mejor.periodo,
     mesesConsiderados: enVentana.length,
     detalle: { semestreInicio: inicio, semestreFin: fin, mesesConsiderados: enVentana.length, periodoSeleccionado: mejor.periodo },

@@ -74,7 +74,9 @@ function calcularMRMNH(remuneraciones: RemuneracionMensual[], fechaIngreso: Date
 
 `sueldoMensualActual` (base de `VAC_NO_GOZADAS`/`VAC_NO_GOZADAS_ANTERIORES`, §4.5-4.6) tampoco se carga como un número suelto por defecto: `AuditoriasService.sueldoBaseIndemnizacionDelCaso` toma el `conceptosRemunerativos` de la `RemuneracionMensual` más reciente hasta el mes de egreso inclusive — que ya viene filtrada por el catálogo de conceptos del cliente cuando existe (§2.4), a diferencia de la MRMNH acá no importa si el mes es "normal y habitual" (es la remuneración vigente al momento de la extinción, no la mejor del año). Una variable manual `sueldoMensualActual` cargada por el auditor tiene prioridad sobre este valor derivado; solo hace falta cargarla a mano si el empleado no tiene ninguna `RemuneracionMensual` importada hasta esa fecha.
 
-`mejorRemuneracionSemestral` (base de `SAC_PROP`, §4.4) tampoco es un número suelto por defecto, y **no es la misma ventana que la MRMNH**: los arts. 121 a 123 LCT (según el método de cálculo de la Ley 23.041 y su Decreto reglamentario 1078/1984) fijan el SAC como el 50% de la mejor remuneración devengada **dentro del semestre calendario** (ene-jun o jul-dic) que contiene el egreso — no de los últimos 12 meses, como el art. 245. `calcularBaseSAC` (`packages/motor-calculo/src/sac-base.ts`) filtra el histórico de `RemuneracionMensual` del empleado a ese semestre (y sigue exigiendo `esNormalYHabitual`) y toma la mejor; `AuditoriasService.baseSACDelCaso` la deriva por defecto. Una variable manual `mejorRemuneracionSemestral` tiene prioridad; solo hace falta cargarla a mano si no hay ninguna remuneración normal y habitual importada dentro de ese semestre.
+`mejorRemuneracionSemestral` (base de `SAC_PROP`, §4.4) tampoco es un número suelto por defecto, y **no es la misma ventana que la MRMNH**: los arts. 121 a 123 LCT (según el método de cálculo de la Ley 23.041 y su Decreto reglamentario 1078/1984) fijan el SAC como la mejor remuneración devengada **dentro del semestre calendario** (ene-jun o jul-dic) que contiene el egreso, prorrateada por los días trabajados — no de los últimos 12 meses, como el art. 245. `calcularBaseSAC` (`packages/motor-calculo/src/sac-base.ts`) filtra el histórico de `RemuneracionMensual` del empleado a ese semestre (y sigue exigiendo `esNormalYHabitual`) y toma la mejor; `AuditoriasService.baseSACDelCaso` la deriva por defecto. Una variable manual `mejorRemuneracionSemestral` tiene prioridad; solo hace falta cargarla a mano si no hay ninguna remuneración normal y habitual importada dentro de ese semestre.
+
+Esta base **tampoco es `conceptosRemunerativos`** (la del art. 245): usa el campo propio `RemuneracionMensual.remuneracionDevengadaSac`, con un criterio de neteo distinto. El art. 245 quiere el sueldo "normal" del mes (por eso, para un mes parcial, se excluyen los descuentos por días no trabajados — ver §2.3, el mes sigue compitiendo por ser la MRMNH con su valor pleno). El SAC, en cambio, se calcula sobre lo **efectivamente devengado** ese mes (arts. 121/122: "remuneración... devengada"): si el empleado trabajó la mitad del mes, la remuneración devengada de ese mes es la mitad, no el sueldo pleno. Por eso `remuneracionDevengadaSac` sí netea esos descuentos, y además excluye el propio concepto de SAC proporcional del recibo (evita circularidad: no se puede usar el SAC ya liquidado para calcular la base del próximo cálculo de SAC). Ver §2.3 para cómo se deriva.
 
 ### 2.2 Import masivo de nómina
 
@@ -88,8 +90,8 @@ Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `P
 | `Ingreso` | Fecha de ingreso, para el alta automática del `Empleado` |
 | `Categoría` | Categoría/puesto, para el alta automática del `Empleado` |
 | `Proceso` | Nombre del proceso de liquidación — si contiene "ajuste" (retroactivo), el mes se marca `esNormalYHabitual=false` |
-| `Código` | Código de concepto del sistema de nómina del cliente. Si el cliente importó su catálogo (§2.4), se usa `ConceptoCliente.baseIndemnizacion` para decidir si el concepto suma a `conceptosRemunerativos`; si el código no está en el catálogo (o el cliente no importó ninguno), se cae al `TIPO` de la fila como antes |
-| `Concepto`, `Monto`, `TIPO` | Se agrupan por empleado+período: por defecto (sin catálogo) `TIPO='REMU'` suma a `conceptosRemunerativos`, cualquier otro valor suma a `conceptosNoRemunerativos` (informativo, no entra en la MRMNH); el desglose por concepto queda en `RemuneracionMensual.detalle` para trazabilidad |
+| `Código` | Código de concepto del sistema de nómina del cliente. Si el cliente importó su catálogo (§2.4), se usa `ConceptoCliente.baseIndemnizacion`/`tipo` para decidir si el concepto suma a `conceptosRemunerativos`/`remuneracionDevengadaSac`; si el código no está en el catálogo (o el cliente no importó ninguno), se cae al `TIPO` de la fila como antes |
+| `Concepto`, `Monto`, `TIPO` | Se agrupan por empleado+período: por defecto (sin catálogo) `TIPO='REMU'` suma a `conceptosRemunerativos` y a `remuneracionDevengadaSac` (salvo que el nombre del concepto matchee un rubro de liquidación final vía `rubroParaConcepto`, p.ej. el propio SAC — ver §2.1), cualquier otro valor suma a `conceptosNoRemunerativos` (informativo, no entra en ninguna base); el desglose por concepto queda en `RemuneracionMensual.detalle` para trazabilidad |
 
 `Empleado`, `Modelo`, `Depto.`, `Tipo` y `Contrato` no se usan (no tienen un campo equivalente en el modelo hoy). El resto de columnas (`Doc`, `Apellido y Nombre`, `Período`, `Ingreso`, `Categoría`, `Proceso`, `Código`, `Concepto`, `Monto`, `TIPO`) son obligatorias — el import rechaza el archivo si falta alguna. La importación es **idempotente**: reimportar el mismo archivo actualiza (no duplica) los mismos `Empleado`/`RemuneracionMensual` vía upsert por `[clienteId, cuil]` / `[empleadoId, periodo]`.
 
@@ -102,6 +104,8 @@ Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `P
 - **`RemuneracionMensual`** del período del recibo: `conceptosRemunerativos` se calcula sumando, código por código, los conceptos del recibo cuyo `ConceptoCliente.baseIndemnizacion` es `true` (§2.4) — si el cliente todavía no importó su catálogo, se cae al total "Remunerativo" que imprime el recibo (menos preciso: puede incluir conceptos remunerativos que la doctrina excluye de la base del art. 245, como el SAC proporcional). La respuesta del import (`baseCalculadaConCatalogo`) indica cuál de los dos se usó.
 
   `esNormalYHabitual` sigue el mismo criterio: **con catálogo**, se asume `true` — los conceptos de ajuste por mes parcial (días/horas no trabajados, descuento por ingreso/egreso — típicos de una liquidación final con fecha de egreso mid-mes) normalmente no están marcados `baseIndemnizacion=true` en el catálogo, así que `conceptosRemunerativos` ya queda depurado de esa distorsión y el mes sí es representativo para competir por la MRMNH (p.ej. una renuncia el 15 del mes: el SAC proporcional y los descuentos de días son mecánica normal de liquidación final, no bajan el sueldo básico que entra en la base). **Sin catálogo**, en cambio, `conceptosRemunerativos` es el total "Remunerativo" impreso —que si incluye esos conceptos de ajuste sí distorsiona el mes— y se seguía marcando `esNormalYHabitual=false` si el recibo trae alguno de esos conceptos (igual criterio que el "ajuste" de §2.2).
+
+  `remuneracionDevengadaSac` (base del SAC, §2.1) se calcula distinto — acá sí importa netear el mes parcial, porque el SAC se calcula sobre lo devengado: **con catálogo**, suma los conceptos del recibo cuyo `ConceptoCliente.tipo` es `remunerativo` y cuyo nombre no matchea ningún rubro de liquidación final (`rubroParaConcepto` — excluye el propio SAC proporcional, las vacaciones no gozadas y sus SAC). Para el ejemplo de la renuncia el 15 del mes: Sueldo Básico (+100%) + Licencia Enfermedad (+50%) − Días no trabajados (−50%) − Descuento ingreso/egreso (−50%) = 50% del sueldo básico — exactamente la mitad del mes trabajada, a diferencia de `conceptosRemunerativos` que da el 100% (el sueldo "normal", para el art. 245). **Sin catálogo**, cae al total "Remunerativo" impreso del recibo menos el monto del concepto de SAC proporcional detectado por nombre (el total impreso ya suele netear los descuentos por mes parcial).
 - **`Liquidacion` de origen "empresa"**: se cargan los rubros que el recibo sí trae, mapeados por **palabras clave en el nombre del concepto** (no por código — los códigos son específicos del proveedor de nómina, no un estándar): "sac" + "proporcional" → `SAC_PROP`; "vac" + "no goz" (sin "anterior") → `VAC_NO_GOZADAS`; "vac" + "no goz" + "anterior" → `VAC_NO_GOZADAS_ANTERIORES`; con "sac" antepuesto, los mismos dos casos → `SAC_S_VAC` / `SAC_S_VAC_ANTERIORES`. **El recibo de liquidación final típicamente no incluye la indemnización por antigüedad, el preaviso ni la integración del mes** (se liquidan por otro instrumento) — quedan declarados en $0, que es justamente la señal que la auditoría necesita marcar si esos rubros se pagaron por fuera del recibo.
 
 No es idempotente: reimportar el mismo recibo crea un `Caso` nuevo cada vez (no hay forma de saber, solo con el PDF, si dos importaciones corresponden al mismo trámite de baja).
@@ -114,7 +118,7 @@ Los códigos de concepto **no son un estándar**: cada cliente (o su proveedor d
 |---|---|
 | `Código` | Código de concepto del cliente. Se normaliza como número (`"01100"` y `1100` matchean) para poder cruzar contra el código de nómina (§2.2) y el del recibo (§2.3), que lo traen con formato distinto |
 | `Descripción` | Nombre del concepto, informativo |
-| `Tipo` | `Remunerativo` / `No remunerativo` / `Descuento` — se guarda en `ConceptoCliente.tipo`, informativo (no decide la base; ver `Base Indemnización`) |
+| `Tipo` | `Remunerativo` / `No remunerativo` / `Descuento` — se guarda en `ConceptoCliente.tipo`. No decide la base del art. 245 (ver `Base Indemnización`), pero sí decide la base del SAC proporcional (`remuneracionDevengadaSac`, §2.1/§2.3): solo los conceptos marcados `Remunerativo` cuentan, sin importar el signo del monto (un descuento por mes parcial también es `Remunerativo`, reduce lo devengado) |
 | `Característica` | `Fijo` / `Variable` / vacío (`N/A`) — informativo |
 | `Base Indemnización` | `Si`/`No` — **la señal que efectivamente usan los importadores**: si el concepto suma a `conceptosRemunerativos` (§2.2, §2.4) |
 
@@ -204,16 +208,16 @@ sino:
 
 ### 4.4 SAC proporcional (aguinaldo, arts. 121 a 123 LCT y Ley 23.041)
 
-`mejorRemuneracionDelSemestre` es `mejorRemuneracionSemestral` — la mejor remuneración normal y habitual devengada **dentro del semestre calendario del egreso**, no la MRMNH del art. 245 (últimos 12 meses) — ver §2.1 y `calcularBaseSAC`.
+`mejorRemuneracionDelSemestre` es `mejorRemuneracionSemestral` — la mejor `remuneracionDevengadaSac` **dentro del semestre calendario del egreso** (no `conceptosRemunerativos`, y no la MRMNH del art. 245 de los últimos 12 meses) — ver §2.1 y `calcularBaseSAC`.
 
-Se computa bajo la **convención comercial** (mes de 30 días, año de 360 — variante 30E/360), no con días calendario reales: cada semestre equivale siempre a 180 días, sin importar meses de 28 a 31 días ni años bisiestos.
+Se computa bajo la **convención comercial** (mes de 30 días, año de 360 — variante 30E/360), no con días calendario reales: cada semestre equivale siempre a 180 días, sin importar meses de 28 a 31 días ni años bisiestos. El divisor de la proporción es **360 (el año)**, no 180 (el semestre): con el semestre completo trabajado (180 días), `diasTrabajados/360 = 0,5` — el 50% de `mejorRemuneracionDelSemestre`, nunca el 100% (el año completo, con sus dos cuotas semestrales, es el que suma una remuneración entera).
 
 ```
 semestre = obtenerSemestre(fechaEgreso)               // 1/1–30/6 o 1/7–31/12
 diasTrabajadosEnSemestre = diasEntreComercial(inicioSemestre o fechaIngreso (lo que sea posterior), fechaEgreso)
-diasTotalesSemestre = diasEntreComercial(inicioSemestre, finSemestre)   // siempre 180
+diasDelAnio = 360
 
-sacProporcional = (mejorRemuneracionDelSemestre / 2) * (diasTrabajadosEnSemestre / diasTotalesSemestre)
+sacProporcional = mejorRemuneracionDelSemestre * (diasTrabajadosEnSemestre / diasDelAnio)
 ```
 
 ```ts
@@ -226,13 +230,14 @@ function diasEntreComercial(desde: Date, hasta: Date): number {
   return anios * 360 + meses * 30 + (diaHasta - diaDesde);
 }
 
+const DIAS_DEL_ANIO = 360;
+
 function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
   const { inicio, fin } = semestreDe(v.fechaEgreso);
   const desde = maxFecha(inicio, v.fechaIngreso);
   const diasTrabajados = diasEntreComercial(desde, v.fechaEgreso) + 1;
-  const diasTotales = diasEntreComercial(inicio, fin) + 1; // siempre 180
-  const monto = (v.mejorRemuneracionSemestral / 2) * (diasTrabajados / diasTotales);
-  return { rubro: 'SAC_PROP', monto, detalle: { diasTrabajados, diasTotales, convencion: '30/360' } };
+  const monto = v.mejorRemuneracionSemestral * (diasTrabajados / DIAS_DEL_ANIO);
+  return { rubro: 'SAC_PROP', monto, detalle: { diasTrabajados, diasDelAnio: DIAS_DEL_ANIO, convencion: '30/360' } };
 }
 ```
 

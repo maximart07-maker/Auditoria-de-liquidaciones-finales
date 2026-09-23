@@ -233,21 +233,32 @@ export class AuditoriasService {
    * Base por defecto de "mejor remuneración semestral" (SAC proporcional, arts.
    * 121 a 123 LCT según Ley 23.041): la mejor `RemuneracionMensual` normal y
    * habitual dentro del semestre calendario que contiene la fecha de egreso —
-   * ver `calcularBaseSAC`. A diferencia de la MRMNH (últimos 12 meses, art.
-   * 245), acá solo importa ese semestre. `null` si no hay ninguna remuneración
-   * normal y habitual cargada dentro de él (el auditor puede cargarla a mano).
+   * ver `calcularBaseSAC`. Usa `remuneracionDevengadaSac` (no `conceptosRemunerativos`,
+   * que es la base del art. 245): ese campo neta los descuentos de un mes
+   * parcial en vez de usar el sueldo "normal" del mes, porque el SAC se
+   * calcula sobre lo efectivamente devengado — ver ImportacionesService y
+   * docs/motor-calculo.md §2.1. Los meses sin ese campo cargado (imports
+   * previos a esta columna) se ignoran para esta base. `null` si no hay
+   * ninguna remuneración normal y habitual con el campo cargado dentro del
+   * semestre (el auditor puede cargarla a mano).
    */
   private baseSACDelCaso(
-    remuneraciones: { periodo: Date; conceptosRemunerativos: Prisma.Decimal; esNormalYHabitual: boolean }[],
+    remuneraciones: {
+      periodo: Date;
+      remuneracionDevengadaSac: Prisma.Decimal | null;
+      esNormalYHabitual: boolean;
+    }[],
     fechaEgreso: Date,
   ): number | null {
     try {
       return calcularBaseSAC(
-        remuneraciones.map((r) => ({
-          periodo: r.periodo,
-          conceptosRemunerativos: Number(r.conceptosRemunerativos),
-          esNormalYHabitual: r.esNormalYHabitual,
-        })),
+        remuneraciones
+          .filter((r) => r.remuneracionDevengadaSac !== null)
+          .map((r) => ({
+            periodo: r.periodo,
+            remuneracionDevengadaSac: Number(r.remuneracionDevengadaSac),
+            esNormalYHabitual: r.esNormalYHabitual,
+          })),
         fechaEgreso,
       ).valor;
     } catch (error) {

@@ -186,6 +186,15 @@ model RemuneracionMensual {
   empleadoId             String         @map("empleado_id")
   periodo                DateTime       @map("periodo") @db.Date
   conceptosRemunerativos Decimal        @map("conceptos_remunerativos") @db.Decimal(14, 2)
+  /// Remuneración devengada del mes para el SAC proporcional (arts. 121-123 LCT,
+  /// Ley 23.041) — a diferencia de `conceptosRemunerativos` (base del art. 245,
+  /// que usa el sueldo "normal" sin reducir por un mes parcial), acá sí se neta
+  /// por los días efectivamente trabajados en el mes (p.ej. descuentos por
+  /// ingreso/egreso) y se excluye el propio SAC proporcional del recibo (evita
+  /// circularidad). Null si no se pudo derivar (import previo a este campo, o
+  /// carga manual) — `AuditoriasService.baseSACDelCaso` cae al override manual
+  /// en ese caso. Ver docs/motor-calculo.md §2.1 y §2.4.
+  remuneracionDevengadaSac Decimal?     @map("remuneracion_devengada_sac") @db.Decimal(14, 2)
   esNormalYHabitual      Boolean        @default(true) @map("es_normal_y_habitual")
   detalle                Json?
   fuente                 FuenteVariable @default(manual)
