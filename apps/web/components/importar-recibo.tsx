@@ -111,6 +111,14 @@ export function ImportarRecibo({ clienteId }: { clienteId: string }) {
             </Link>
           </p>
 
+          <p>
+            Base remunerativa del período ({resultado.remuneracionMensual.periodo}): $
+            {resultado.remuneracionMensual.conceptosRemunerativos.toLocaleString('es-AR')} —{' '}
+            {resultado.baseCalculadaConCatalogo
+              ? 'calculada con el catálogo de conceptos del cliente (solo los que entran en la base del art. 245)'
+              : 'el cliente no tiene catálogo de conceptos cargado: se usó el total "Remunerativo" del recibo, que puede incluir conceptos como el SAC que no entran en esa base'}
+          </p>
+
           <div>
             <p className="text-xs font-medium text-slate-500">Rubros declarados por la empresa (del recibo)</p>
             <ul className="mt-1 space-y-0.5">

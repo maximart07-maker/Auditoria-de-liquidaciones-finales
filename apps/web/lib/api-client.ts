@@ -185,6 +185,14 @@ export interface ResumenImportacionRecibo {
   rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[];
   conceptosSinMapear: { concepto: string; monto: number }[];
   rubrosLegalesNoEncontradosEnElRecibo: string[];
+  baseCalculadaConCatalogo: boolean;
+}
+
+export interface ResumenImportacionConceptos {
+  clienteId: string;
+  conceptosProcesados: number;
+  conceptosCreados: number;
+  conceptosActualizados: number;
 }
 
 export const apiClient = {
@@ -257,5 +265,18 @@ export const apiClient = {
       throw new Error(`API ${respuesta.status} en /importaciones/recibo: ${cuerpo}`);
     }
     return respuesta.json() as Promise<ResumenImportacionRecibo>;
+  },
+  importarConceptos: async (clienteId: string, archivo: File): Promise<ResumenImportacionConceptos> => {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    const respuesta = await fetch(`${API_URL}/clientes/${clienteId}/importaciones/conceptos`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!respuesta.ok) {
+      const cuerpo = await respuesta.text();
+      throw new Error(`API ${respuesta.status} en /importaciones/conceptos: ${cuerpo}`);
+    }
+    return respuesta.json() as Promise<ResumenImportacionConceptos>;
   },
 };

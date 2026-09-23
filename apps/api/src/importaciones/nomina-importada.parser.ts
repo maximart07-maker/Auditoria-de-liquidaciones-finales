@@ -9,6 +9,7 @@ const COLUMNAS_REQUERIDAS = [
   'Ingreso',
   'Categoría',
   'Proceso',
+  'Código',
   'Concepto',
   'Monto',
   'TIPO',
@@ -21,9 +22,13 @@ export interface FilaNominaImportada {
   fechaIngreso: Date;
   categoria: string | null;
   proceso: string;
+  /** Código de concepto del sistema de nómina del cliente — ver ConceptoCliente
+   * (docs/motor-calculo.md §2.4), usado para saber si computa para la MRMNH. */
+  codigo: string;
   concepto: string;
   monto: number;
-  /** 'REMU' | 'NO REMU', tal como viene en el archivo (normalizado a mayúsculas/trim). */
+  /** 'REMU' | 'NO REMU', tal como viene en el archivo (normalizado a mayúsculas/trim).
+   * Fallback cuando el cliente no tiene cargado su catálogo de conceptos. */
   tipo: string;
 }
 
@@ -104,6 +109,7 @@ export async function parsearNomina(buffer: Buffer): Promise<FilaNominaImportada
       fechaIngreso: aFecha(row.getCell(columna('Ingreso')).value, 'Ingreso', numeroFila),
       categoria: textoDeCelda(row.getCell(columna('Categoría')).value).trim() || null,
       proceso: textoDeCelda(row.getCell(columna('Proceso')).value),
+      codigo: textoDeCelda(row.getCell(columna('Código')).value).trim(),
       concepto: textoDeCelda(row.getCell(columna('Concepto')).value),
       monto: Number(montoValor),
       tipo: textoDeCelda(row.getCell(columna('TIPO')).value).trim().toUpperCase(),

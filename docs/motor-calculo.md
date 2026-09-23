@@ -82,9 +82,10 @@ Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `P
 | `Ingreso` | Fecha de ingreso, para el alta automática del `Empleado` |
 | `Categoría` | Categoría/puesto, para el alta automática del `Empleado` |
 | `Proceso` | Nombre del proceso de liquidación — si contiene "ajuste" (retroactivo), el mes se marca `esNormalYHabitual=false` |
-| `Concepto`, `Monto`, `TIPO` | Se agrupan por empleado+período: `TIPO='REMU'` suma a `conceptosRemunerativos`, cualquier otro valor suma a `conceptosNoRemunerativos` (informativo, no entra en la MRMNH); el desglose por concepto queda en `RemuneracionMensual.detalle` para trazabilidad |
+| `Código` | Código de concepto del sistema de nómina del cliente. Si el cliente importó su catálogo (§2.4), se usa `ConceptoCliente.baseIndemnizacion` para decidir si el concepto suma a `conceptosRemunerativos`; si el código no está en el catálogo (o el cliente no importó ninguno), se cae al `TIPO` de la fila como antes |
+| `Concepto`, `Monto`, `TIPO` | Se agrupan por empleado+período: por defecto (sin catálogo) `TIPO='REMU'` suma a `conceptosRemunerativos`, cualquier otro valor suma a `conceptosNoRemunerativos` (informativo, no entra en la MRMNH); el desglose por concepto queda en `RemuneracionMensual.detalle` para trazabilidad |
 
-`Empleado`, `Modelo`, `Depto.`, `Tipo`, `Contrato` y `Código` no se usan (no tienen un campo equivalente en el modelo hoy). El resto de columnas (`Doc`, `Apellido y Nombre`, `Período`, `Ingreso`, `Categoría`, `Proceso`, `Concepto`, `Monto`, `TIPO`) son obligatorias — el import rechaza el archivo si falta alguna. La importación es **idempotente**: reimportar el mismo archivo actualiza (no duplica) los mismos `Empleado`/`RemuneracionMensual` vía upsert por `[clienteId, cuil]` / `[empleadoId, periodo]`.
+`Empleado`, `Modelo`, `Depto.`, `Tipo` y `Contrato` no se usan (no tienen un campo equivalente en el modelo hoy). El resto de columnas (`Doc`, `Apellido y Nombre`, `Período`, `Ingreso`, `Categoría`, `Proceso`, `Código`, `Concepto`, `Monto`, `TIPO`) son obligatorias — el import rechaza el archivo si falta alguna. La importación es **idempotente**: reimportar el mismo archivo actualiza (no duplica) los mismos `Empleado`/`RemuneracionMensual` vía upsert por `[clienteId, cuil]` / `[empleadoId, periodo]`.
 
 ### 2.3 Import del recibo de liquidación final (crea el caso)
 
@@ -92,10 +93,24 @@ Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `P
 
 - **Empleado**: CUIL, nombre, categoría y fecha de ingreso salen del encabezado del recibo; se da de alta si el CUIL no existe todavía en el cliente (mismo criterio que §2.2).
 - **Caso**: el recibo **no trae** el motivo ni la fecha de extinción (no son datos de nómina — viven en el telegrama/acuerdo de desvinculación) — el formulario los pide aparte, con un desplegable para el motivo y una fecha, ambos completables a mano.
-- **`RemuneracionMensual`** del período del recibo: `conceptosRemunerativos` = el total "Remunerativo" del recibo. Si el recibo trae algún concepto de "días/horas no trabajados" o "descuento días ingreso/egreso" (señal de mes parcial, típico de una liquidación final), se marca `esNormalYHabitual=false` — igual criterio que el "ajuste" de §2.2.
+- **`RemuneracionMensual`** del período del recibo: `conceptosRemunerativos` se calcula sumando, código por código, los conceptos del recibo cuyo `ConceptoCliente.baseIndemnizacion` es `true` (§2.4) — si el cliente todavía no importó su catálogo, se cae al total "Remunerativo" que imprime el recibo (menos preciso: puede incluir conceptos remunerativos que la doctrina excluye de la base del art. 245, como el SAC proporcional). La respuesta del import (`baseCalculadaConCatalogo`) indica cuál de los dos se usó. Si el recibo trae algún concepto de "días/horas no trabajados" o "descuento días ingreso/egreso" (señal de mes parcial, típico de una liquidación final), se marca `esNormalYHabitual=false` — igual criterio que el "ajuste" de §2.2.
 - **`Liquidacion` de origen "empresa"**: se cargan los rubros que el recibo sí trae, mapeados por **palabras clave en el nombre del concepto** (no por código — los códigos son específicos del proveedor de nómina, no un estándar): "sac" + "proporcional" → `SAC_PROP`; "vac" + "no goz" (sin "anterior") → `VAC_NO_GOZADAS`; "vac" + "no goz" + "anterior" → `VAC_NO_GOZADAS_ANTERIORES`; con "sac" antepuesto, los mismos dos casos → `SAC_S_VAC` / `SAC_S_VAC_ANTERIORES`. **El recibo de liquidación final típicamente no incluye la indemnización por antigüedad, el preaviso ni la integración del mes** (se liquidan por otro instrumento) — quedan declarados en $0, que es justamente la señal que la auditoría necesita marcar si esos rubros se pagaron por fuera del recibo.
 
 No es idempotente: reimportar el mismo recibo crea un `Caso` nuevo cada vez (no hay forma de saber, solo con el PDF, si dos importaciones corresponden al mismo trámite de baja).
+
+### 2.4 Catálogo de conceptos del cliente (base del art. 245)
+
+Los códigos de concepto **no son un estándar**: cada cliente (o su proveedor de liquidación de sueldos) numera distinto, y un mismo código puede significar cosas distintas entre clientes. Además, que un concepto sea remunerativo no alcanza para saber si entra en la base del art. 245 LCT (MRMNH): el SAC proporcional, por ejemplo, es remunerativo pero la doctrina lo excluye de esa base. `POST /clientes/:clienteId/importaciones/conceptos` (`apps/api/src/importaciones/conceptos-cliente.parser.ts`) importa el catálogo propio de cada cliente para resolver esto sin adivinar, un `.xlsx` (hoja "Conceptos") con:
+
+| Columna | Uso |
+|---|---|
+| `Código` | Código de concepto del cliente. Se normaliza como número (`"01100"` y `1100` matchean) para poder cruzar contra el código de nómina (§2.2) y el del recibo (§2.3), que lo traen con formato distinto |
+| `Descripción` | Nombre del concepto, informativo |
+| `Tipo` | `Remunerativo` / `No remunerativo` / `Descuento` — se guarda en `ConceptoCliente.tipo`, informativo (no decide la base; ver `Base Indemnización`) |
+| `Característica` | `Fijo` / `Variable` / vacío (`N/A`) — informativo |
+| `Base Indemnización` | `Si`/`No` — **la señal que efectivamente usan los importadores**: si el concepto suma a `conceptosRemunerativos` (§2.2, §2.4) |
+
+Si un cliente no importa su catálogo, ambos importadores siguen funcionando con su criterio anterior (el `TIPO` de la fila en la nómina, el total "Remunerativo" impreso en el recibo) — el catálogo es una mejora opcional pero recomendada, y conviene cargarlo antes de importar nómina o recibos de ese cliente para que la base quede bien calculada desde el primer import. La importación es **idempotente**: reimportar actualiza (no duplica) el catálogo vía upsert por `[clienteId, codigo]`.
 
 ## 3. Rubros aplicables según tipo de extinción
 

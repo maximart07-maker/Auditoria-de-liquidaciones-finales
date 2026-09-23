@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilaNominaImportada, parsearNomina } from './nomina-importada.parser';
 import { ImportarReciboDto } from './dto/importar-recibo.dto';
 import { parsearReciboLiquidacion, rubroParaConcepto } from './recibo-liquidacion.parser';
+import { normalizarCodigoConcepto, parsearConceptosCliente } from './conceptos-cliente.parser';
 
 interface MesAgregado {
   conceptosRemunerativos: number;
@@ -43,11 +44,70 @@ export interface ResumenImportacionRecibo {
    * integración) — quedan declarados en $0, lo que la auditoría marca como
    * diferencia del 100% contra lo calculado si el sistema los calcula. */
   rubrosLegalesNoEncontradosEnElRecibo: string[];
+  /** true si `conceptosRemunerativos` se calculó con el catálogo propio del
+   * cliente (ConceptoCliente.baseIndemnizacion); false si el cliente no tiene
+   * catálogo cargado y se usó el total "Remunerativo" que imprime el recibo
+   * (menos preciso: puede incluir conceptos remunerativos que la doctrina
+   * excluye de la base del art. 245, como el SAC). */
+  baseCalculadaConCatalogo: boolean;
+}
+
+export interface ResumenImportacionConceptos {
+  clienteId: string;
+  conceptosProcesados: number;
+  conceptosCreados: number;
+  conceptosActualizados: number;
 }
 
 @Injectable()
 export class ImportacionesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Importa el catálogo propio del cliente para los códigos de concepto de su
+   * sistema de nómina (Código, Descripción, Tipo, Característica, Base
+   * Indemnización — ver docs/motor-calculo.md §2.4). Los importadores de
+   * nómina y de recibo lo usan para saber, código por código, qué computa
+   * para la base del art. 245 LCT (`baseIndemnizacion`), en vez de asumirlo
+   * por el tipo remunerativo/no remunerativo. Idempotente por `[clienteId, codigo]`.
+   */
+  async importarConceptos(clienteId: string, buffer: Buffer): Promise<ResumenImportacionConceptos> {
+    await this.asegurarCliente(clienteId);
+    const conceptos = await parsearConceptosCliente(buffer);
+
+    const existentes = await this.prisma.conceptoCliente.findMany({
+      where: { clienteId, codigo: { in: conceptos.map((c) => c.codigo) } },
+      select: { codigo: true },
+    });
+    const codigosExistentes = new Set(existentes.map((c) => c.codigo));
+
+    let conceptosCreados = 0;
+    let conceptosActualizados = 0;
+    for (const concepto of conceptos) {
+      await this.prisma.conceptoCliente.upsert({
+        where: { clienteId_codigo: { clienteId, codigo: concepto.codigo } },
+        create: { clienteId, ...concepto },
+        update: { ...concepto },
+      });
+      if (codigosExistentes.has(concepto.codigo)) conceptosActualizados++;
+      else conceptosCreados++;
+    }
+
+    return {
+      clienteId,
+      conceptosProcesados: conceptos.length,
+      conceptosCreados,
+      conceptosActualizados,
+    };
+  }
+
+  /** Trae el catálogo de conceptos del cliente como un mapa código→baseIndemnizacion,
+   * para que los importadores de nómina/recibo lo usen sin repetir la consulta
+   * por cada fila. Mapa vacío si el cliente todavía no importó su catálogo. */
+  private async obtenerCatalogoConceptos(clienteId: string): Promise<Map<string, boolean>> {
+    const conceptos = await this.prisma.conceptoCliente.findMany({ where: { clienteId } });
+    return new Map(conceptos.map((c) => [c.codigo, c.baseIndemnizacion]));
+  }
 
   async importarNomina(clienteId: string, buffer: Buffer): Promise<ResumenImportacion> {
     await this.asegurarCliente(clienteId);
@@ -56,7 +116,8 @@ export class ImportacionesService {
       throw new BadRequestException('El archivo no tiene filas de datos para importar');
     }
 
-    const porCuil = this.agruparPorEmpleadoYPeriodo(filas);
+    const catalogo = await this.obtenerCatalogoConceptos(clienteId);
+    const porCuil = this.agruparPorEmpleadoYPeriodo(filas, catalogo);
 
     let empleadosCreados = 0;
     let empleadosActualizados = 0;
@@ -118,6 +179,13 @@ export class ImportacionesService {
   async importarRecibo(clienteId: string, buffer: Buffer, dto: ImportarReciboDto): Promise<ResumenImportacionRecibo> {
     await this.asegurarCliente(clienteId);
     const recibo = await parsearReciboLiquidacion(buffer);
+    const catalogo = await this.obtenerCatalogoConceptos(clienteId);
+    const baseCalculadaConCatalogo = catalogo.size > 0;
+    const conceptosRemunerativos = baseCalculadaConCatalogo
+      ? recibo.conceptos
+          .filter((c) => catalogo.get(normalizarCodigoConcepto(c.codigo)) === true)
+          .reduce((total, c) => total + c.monto, 0)
+      : recibo.remunerativo;
 
     let empleadoCreado = false;
     const empleadoId = await this.obtenerOCrearEmpleado(
@@ -142,13 +210,13 @@ export class ImportacionesService {
       create: {
         empleadoId,
         periodo: recibo.periodo,
-        conceptosRemunerativos: recibo.remunerativo,
+        conceptosRemunerativos,
         esNormalYHabitual: !recibo.esPeriodoAtipico,
         detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
         fuente: 'importado',
       },
       update: {
-        conceptosRemunerativos: recibo.remunerativo,
+        conceptosRemunerativos,
         esNormalYHabitual: !recibo.esPeriodoAtipico,
         detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
         fuente: 'importado',
@@ -192,25 +260,34 @@ export class ImportacionesService {
       casoId: caso.id,
       remuneracionMensual: {
         periodo: recibo.periodo.toISOString().slice(0, 10),
-        conceptosRemunerativos: recibo.remunerativo,
+        conceptosRemunerativos,
         esNormalYHabitual: !recibo.esPeriodoAtipico,
       },
       rubrosDeclarados,
       conceptosSinMapear,
       rubrosLegalesNoEncontradosEnElRecibo,
+      baseCalculadaConCatalogo,
     };
   }
 
   /**
    * Agrupa las filas sueltas (un renglón por concepto) en un agregado por
-   * empleado (CUIL) y período: suma `Monto` en `conceptosRemunerativos` cuando
-   * `TIPO='REMU'`, y en `conceptosNoRemunerativos` en cualquier otro caso.
-   * Marca `tieneAjuste=true` si algún renglón del mes viene de un proceso de
-   * liquidación cuyo nombre contiene "ajuste" (heurística: un ajuste/retroactivo
-   * suele distorsionar el mes y no debería competir por ser la "mejor"
-   * remuneración — el auditor puede revisar y corregir el flag a mano después).
+   * empleado (CUIL) y período. Para decidir si un concepto computa para
+   * `conceptosRemunerativos` (la base de la MRMNH, art. 245 LCT) usa
+   * `catalogo` — el `ConceptoCliente.baseIndemnizacion` del cliente, más
+   * preciso que el `TIPO` de la fila (un concepto puede ser remunerativo y no
+   * entrar en la base, p.ej. el SAC) — y solo cae al `TIPO='REMU'` de la fila
+   * si ese código no está en el catálogo del cliente (o el cliente no
+   * importó ninguno todavía). Marca `tieneAjuste=true` si algún renglón del
+   * mes viene de un proceso de liquidación cuyo nombre contiene "ajuste"
+   * (heurística: un ajuste/retroactivo suele distorsionar el mes y no
+   * debería competir por ser la "mejor" remuneración — el auditor puede
+   * revisar y corregir el flag a mano después).
    */
-  private agruparPorEmpleadoYPeriodo(filas: FilaNominaImportada[]): Map<string, DatosEmpleado> {
+  private agruparPorEmpleadoYPeriodo(
+    filas: FilaNominaImportada[],
+    catalogo: Map<string, boolean>,
+  ): Map<string, DatosEmpleado> {
     const porCuil = new Map<string, DatosEmpleado>();
 
     for (const fila of filas) {
@@ -227,7 +304,9 @@ export class ImportacionesService {
         datosEmpleado.meses.set(periodoIso, agregado);
       }
 
-      if (fila.tipo === 'REMU') agregado.conceptosRemunerativos += fila.monto;
+      const baseIndemnizacion = catalogo.get(normalizarCodigoConcepto(fila.codigo));
+      const cuentaParaBase = baseIndemnizacion ?? fila.tipo === 'REMU';
+      if (cuentaParaBase) agregado.conceptosRemunerativos += fila.monto;
       else agregado.conceptosNoRemunerativos += fila.monto;
       agregado.detalleConceptos.push({ concepto: fila.concepto, monto: fila.monto, tipo: fila.tipo });
       if (/ajuste/i.test(fila.proceso)) agregado.tieneAjuste = true;

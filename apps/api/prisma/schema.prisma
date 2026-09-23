@@ -89,6 +89,12 @@ enum TipoConcepto {
   variable
 }
 
+enum TipoConceptoNomina {
+  remunerativo
+  no_remunerativo
+  descuento
+}
+
 model Cliente {
   id            String   @id @default(uuid())
   razonSocial   String   @map("razon_social")
@@ -101,8 +107,33 @@ model Cliente {
   empleados            Empleado[]
   lotes                Lote[]
   configuracionesRubro ConfiguracionRubroCliente[]
+  conceptos            ConceptoCliente[]
 
   @@map("cliente")
+}
+
+/// Catálogo propio de cada cliente para los códigos de concepto de su sistema
+/// de liquidación de nómina (no son un estándar — cada cliente/proveedor de
+/// nómina numera distinto). `baseIndemnizacion=true` es la señal precisa de
+/// qué conceptos entran en la base del art. 245 LCT (MRMNH): un concepto puede
+/// ser remunerativo y aun así no computar para la indemnización (p.ej. el SAC,
+/// excluido por doctrina aunque sea remunerativo) — por eso los importadores
+/// de nómina y de recibo usan este campo, no el `tipo`, para armar
+/// `RemuneracionMensual.conceptosRemunerativos`. Ver docs/motor-calculo.md §2.4.
+model ConceptoCliente {
+  id                String             @id @default(uuid())
+  clienteId         String             @map("cliente_id")
+  codigo            String
+  descripcion       String
+  tipo              TipoConceptoNomina
+  caracteristica    TipoConcepto?
+  baseIndemnizacion Boolean            @map("base_indemnizacion")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@unique([clienteId, codigo])
+  @@map("concepto_cliente")
 }
 
 model Usuario {

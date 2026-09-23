@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { ImportarConceptos } from '@/components/importar-conceptos';
 import { ImportarNomina } from '@/components/importar-nomina';
 import { ImportarRecibo } from '@/components/importar-recibo';
 
@@ -21,6 +22,13 @@ export default async function ImportarNominaPage({ params }: { params: { cliente
         </p>
         <h1 className="text-xl font-semibold">Importar — {cliente.razonSocial}</h1>
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Catálogo de conceptos del cliente
+        </h2>
+        <ImportarConceptos clienteId={cliente.id} />
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Nómina (histórico mensual)</h2>
