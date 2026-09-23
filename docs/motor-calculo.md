@@ -235,13 +235,15 @@ function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
 
 `sueldoMensualActual` se deriva por defecto de la `RemuneracionMensual` filtrada por el catálogo del cliente — ver §2.1.
 
-La antigüedad para el tramo de días usa `aniosCompletos` (años completos, sin redondear), **no** `aniosConFraccion` — esa regla de "fracción mayor a 3 meses cuenta año entero" es específica del art. 245 (indemnización por antigüedad), no del art. 150; aplicarla acá adelantaría de tramo antes de tiempo (p.ej. 19 años y 9 meses caería en el tramo "+20 años" en vez de "10 a 20 años").
+La antigüedad para el tramo de días **no** es la antigüedad real a `fechaEgreso`: el art. 150 LCT manda explícitamente "para determinar la extensión de las vacaciones atendiendo a la antigüedad en el empleo, se computará como tal aquélla que tendría el trabajador al 31 de diciembre del año que correspondan las mismas" — es decir, la antigüedad proyectada al 31/12 del año de la extinción (`aniosCompletos(fechaIngreso, finDelAnio(fechaEgreso))`), sin importar que el contrato termine antes. Un trabajador que se va en enero, antes de cumplir años, igual puede computar el año que cumpliría en diciembre si ya no queda margen para que la empresa se lo reconozca de otra forma. Tampoco usa `aniosConFraccion` (la regla de "fracción mayor a 3 meses cuenta año entero"): esa es específica del art. 245 (indemnización por antigüedad), no del art. 150 — acá los años completos se cuentan sin redondeo, solo proyectados al fin de año.
 
 Los días anuales que corresponden son el **mayor** entre tres fuentes — piso legal, tabla del convenio/cliente y el valor manual del caso, si lo hay (§9) — nunca el menor: ninguna de las personalizaciones puede *bajar* lo que corresponde por ley.
 
 ```
-diasSegunLey = segunTablaAntiguedad(antigüedadEnAniosCompletos, DIAS_VACACIONES_LCT)          // piso, art. 150 LCT
-diasSegunConvenio = segunTablaAntiguedad(antigüedadEnAniosCompletos, parametros.diasVacacionesPorAntiguedad)  // convenio/cliente, §9
+antigüedadParaTramo = aniosCompletos(fechaIngreso, finDelAnio(fechaEgreso))  // art. 150: antigüedad proyectada al 31/12, no a fechaEgreso
+
+diasSegunLey = segunTablaAntiguedad(antigüedadParaTramo, DIAS_VACACIONES_LCT)          // piso, art. 150 LCT
+diasSegunConvenio = segunTablaAntiguedad(antigüedadParaTramo, parametros.diasVacacionesPorAntiguedad)  // convenio/cliente, §9
 diasSegunLeyOConvenio = max(diasSegunLey, diasSegunConvenio)
 diasAnuales = max(diasSegunLeyOConvenio, diasVacacionesCorrespondientesManual)  // override manual del caso, §9 — 0 si no se cargó
 

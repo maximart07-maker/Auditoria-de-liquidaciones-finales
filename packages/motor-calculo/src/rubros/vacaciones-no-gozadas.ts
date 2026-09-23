@@ -1,5 +1,5 @@
 import { DiasVacacionesPorAntiguedad, ParametrosNormativos, RubroCalculado, VariablesCaso } from '../tipos';
-import { aniosCompletos, inicioDelAnio, maxFecha, mesesTrabajadosEnPeriodo } from '../utilidades-fecha';
+import { aniosCompletos, finDelAnio, inicioDelAnio, maxFecha, mesesTrabajadosEnPeriodo } from '../utilidades-fecha';
 import { DIAS_VACACIONES_LCT } from '../parametros';
 
 /** Días de vacaciones anuales según antigüedad — art. 150 LCT. */
@@ -32,7 +32,12 @@ export function calcularVacacionesNoGozadas(
   v: VariablesCaso,
   p: ParametrosNormativos,
 ): RubroCalculado {
-  const anios = aniosCompletos(v.fechaIngreso, v.fechaEgreso);
+  // Art. 150 LCT: "para determinar la extensión de las vacaciones atendiendo a la
+  // antigüedad en el empleo, se computará como tal aquélla que tendría el
+  // trabajador al 31 de diciembre del año que correspondan las mismas" — no la
+  // antigüedad real a `fechaEgreso`. Un trabajador que se va a mitad de año igual
+  // usa la antigüedad que habría cumplido para fin de ese año calendario.
+  const anios = aniosCompletos(v.fechaIngreso, finDelAnio(v.fechaEgreso));
   const diasAnuales = diasAnualesCorrespondientes(anios, v, p);
 
   const desde = maxFecha(inicioDelAnio(v.fechaEgreso), v.fechaIngreso);

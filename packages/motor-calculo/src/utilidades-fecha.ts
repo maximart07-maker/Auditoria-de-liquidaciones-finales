@@ -40,6 +40,10 @@ export function inicioDelAnio(fecha: Date): Date {
   return utc(fecha.getUTCFullYear(), 0, 1);
 }
 
+export function finDelAnio(fecha: Date): Date {
+  return utc(fecha.getUTCFullYear(), 11, 31);
+}
+
 export function sumarMeses(fecha: Date, cantidad: number): Date {
   return utc(fecha.getUTCFullYear(), fecha.getUTCMonth() + cantidad, fecha.getUTCDate());
 }
@@ -64,9 +68,10 @@ export function aniosConFraccion(fechaIngreso: Date, fechaEgreso: Date): number 
   return aniosCompletos + (mesesFraccion > 3 ? 1 : 0);
 }
 
-/** Antigüedad en años completos entre `fechaIngreso` y `fechaEgreso`, sin la regla de
- * redondeo del art. 245 (`aniosConFraccion`) — para el tramo de la tabla de días de
- * vacaciones por antigüedad (art. 150 LCT), que no tiene esa regla. */
+/** Años completos entre dos fechas, sin ninguna regla de redondeo por fracción
+ * (a diferencia de `aniosConFraccion`, específica del art. 245). Para el tramo
+ * de la tabla de días de vacaciones por antigüedad (art. 150 LCT) se usa junto
+ * con `finDelAnio`, no con `fechaEgreso` directamente — ver `calcularVacacionesNoGozadas`. */
 export function aniosCompletos(fechaIngreso: Date, fechaEgreso: Date): number {
   return Math.floor(diferenciaEnMeses(fechaIngreso, fechaEgreso) / 12);
 }
