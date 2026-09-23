@@ -258,9 +258,12 @@ diasSegunConvenio = segunTablaAntiguedad(antigüedadParaTramo, parametros.diasVa
 diasSegunLeyOConvenio = max(diasSegunLey, diasSegunConvenio)
 diasAnuales = max(diasSegunLeyOConvenio, diasVacacionesCorrespondientesManual)  // override manual del caso, §9 — 0 si no se cargó
 
-// proporcional a meses trabajados en el año calendario de la extinción
-mesesTrabajadosEnElAnio = mesesCompletos(inicioDelAnio o fechaIngreso, fechaEgreso)
-diasProporcionales = round(diasAnuales / 12 * mesesTrabajadosEnElAnio)
+// proporcional a los días trabajados en el año calendario de la extinción,
+// bajo la misma convención comercial 30/360 que el SAC proporcional (§4.4) —
+// no por meses completos: un mes parcial prorratea, no se descarta ni redondea
+// a mes entero.
+diasTrabajadosEnAnio = diasEntreComercial(inicioDelAnio o fechaIngreso, fechaEgreso) + 1
+diasProporcionales = round(diasAnuales * diasTrabajadosEnAnio / 360)
 diasNoGozados = diasProporcionales - diasVacacionesGozadosEnElAnio
 
 valorDia = sueldoMensualActual / parametros.divisorVacaciones   // divisor 25, LCT

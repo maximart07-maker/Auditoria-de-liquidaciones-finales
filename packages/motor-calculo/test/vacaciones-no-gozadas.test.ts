@@ -16,9 +16,29 @@ describe('calcularVacacionesNoGozadas', () => {
 
     const resultado = calcularVacacionesNoGozadas(v, parametros);
 
-    expect(resultado.detalle.mesesTrabajados).toBe(6);
+    expect(resultado.detalle.diasTrabajadosEnAnio).toBe(180); // convención 30/360, medio año
     expect(resultado.detalle.diasProporcionales).toBe(7);
     expect(resultado.monto).toBeCloseTo(7 * (25_000 / 25), 2);
+  });
+
+  it('prorratea por días bajo la convención 30/360, no por meses completos (caso real: renuncia a mitad de mes)', () => {
+    // TURNER: ingresó 2/10/2006, renuncia el 15/7/2026 — 20 años de antigüedad
+    // al 31/12/2026 (piso legal 35 días). El recibo real de la empresa declara
+    // 19 días no gozados; contando por meses completos (el criterio anterior)
+    // daba 18 (redondea 17,5), porque descartaba los 14 días sueltos de julio
+    // en vez de prorratearlos. Por días 30/360: 195/360 × 35 = 18,96 → 19.
+    const v = variablesBase({
+      fechaIngreso: utc(2006, 10, 2),
+      fechaEgreso: utc(2026, 7, 15),
+      sueldoMensualActual: 1_428_000,
+    });
+    const parametrosDelCaso = crearRepositorioEnMemoria().obtenerVigentes('GENERICO', utc(2026, 7, 15));
+
+    const resultado = calcularVacacionesNoGozadas(v, parametrosDelCaso);
+
+    expect(resultado.detalle.diasAnuales).toBe(35);
+    expect(resultado.detalle.diasTrabajadosEnAnio).toBe(195);
+    expect(resultado.detalle.diasProporcionales).toBe(19);
   });
 
   it('descuenta los días ya gozados en el año', () => {

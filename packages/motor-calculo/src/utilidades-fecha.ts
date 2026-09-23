@@ -1,14 +1,6 @@
-const MS_POR_DIA = 1000 * 60 * 60 * 24;
-
 /** Todas las fechas se tratan en UTC para evitar corrimientos por husos horarios. */
 function utc(anio: number, mes: number, dia: number): Date {
   return new Date(Date.UTC(anio, mes, dia));
-}
-
-export function diasEntre(desde: Date, hasta: Date): number {
-  const a = utc(desde.getUTCFullYear(), desde.getUTCMonth(), desde.getUTCDate());
-  const b = utc(hasta.getUTCFullYear(), hasta.getUTCMonth(), hasta.getUTCDate());
-  return Math.round((b.getTime() - a.getTime()) / MS_POR_DIA);
 }
 
 export function maxFecha(a: Date, b: Date): Date {
@@ -18,8 +10,8 @@ export function maxFecha(a: Date, b: Date): Date {
 /** Cuenta días bajo la convención comercial (mes de 30 días, año de 360), variante
  * 30E/360: cada mes calendario cuenta como 30 días sin importar su duración real
  * (28 a 31), así que cualquier semestre equivale siempre a 180 días. Usada para el
- * SAC proporcional (Ley 23.041), a diferencia de `diasEntre` que cuenta días
- * calendario reales. */
+ * SAC proporcional (Ley 23.041) y las vacaciones no gozadas (art. 150 LCT), en
+ * vez de contar días calendario reales. */
 export function diasEntreComercial(desde: Date, hasta: Date): number {
   const anios = hasta.getUTCFullYear() - desde.getUTCFullYear();
   const meses = hasta.getUTCMonth() - desde.getUTCMonth();
@@ -74,15 +66,6 @@ export function aniosConFraccion(fechaIngreso: Date, fechaEgreso: Date): number 
  * con `finDelAnio`, no con `fechaEgreso` directamente — ver `calcularVacacionesNoGozadas`. */
 export function aniosCompletos(fechaIngreso: Date, fechaEgreso: Date): number {
   return Math.floor(diferenciaEnMeses(fechaIngreso, fechaEgreso) / 12);
-}
-
-/** Meses trabajados en un período, para el proporcional de vacaciones: los meses
- * completos más uno si los días restantes llegan a 15 o más. */
-export function mesesTrabajadosEnPeriodo(desde: Date, hasta: Date): number {
-  const meses = diferenciaEnMeses(desde, hasta);
-  const fechaTrasMeses = sumarMeses(desde, meses);
-  const diasRestantes = diasEntre(fechaTrasMeses, hasta);
-  return meses + (diasRestantes >= 15 ? 1 : 0);
 }
 
 export interface RangoSemestre {
