@@ -2,7 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   calcularLiquidacionSistema,
   calcularMRMNH,
+  conDiasVacacionesPorAntiguedad,
   conTopeIndemnizatorio,
+  DiasVacacionesPorAntiguedad,
   generarHallazgos,
   repositorioParametrosPorDefecto,
   RubroDeclarado,
@@ -129,19 +131,49 @@ export class AuditoriasService {
   }
 
   /**
-   * Si el cliente tiene configurado un tope indemnizatorio propio para
-   * IND_ANTIGUEDAD (art. 245 LCT), lo aplica sobre el repositorio de parámetros
-   * normativos. `calcularIndemnizacionAntiguedad` sigue garantizando el piso del
-   * 67% de la MRMNH (doctrina "Vizzoti") sin importar el tope configurado, así
-   * que esta personalización nunca puede resultar en un monto inferior al legal.
+   * Aplica sobre el repositorio de parámetros normativos por defecto lo que el
+   * cliente tenga configurado: el tope indemnizatorio propio de IND_ANTIGUEDAD
+   * (art. 245 LCT) y/o la tabla de días de vacaciones por antigüedad de
+   * VAC_NO_GOZADAS (art. 150 LCT, p.ej. porque el convenio colectivo aplicable
+   * a sus empleados otorga más días que el genérico). Ninguna de las dos
+   * personalizaciones puede resultar en un monto inferior al legal:
+   * `calcularIndemnizacionAntiguedad` sigue garantizando el piso del 67% de la
+   * MRMNH (doctrina "Vizzoti") y `calcularVacacionesNoGozadas` el piso de
+   * `DIAS_VACACIONES_LCT`, tramo por tramo, sin importar lo que venga acá.
    */
   private async repositorioParametrosParaCliente(clienteId: string) {
-    const config = await this.prisma.configuracionRubroCliente.findFirst({
-      where: { clienteId, rubro: { codigo: 'IND_ANTIGUEDAD' } },
+    const configs = await this.prisma.configuracionRubroCliente.findMany({
+      where: { clienteId, rubro: { codigo: { in: ['IND_ANTIGUEDAD', 'VAC_NO_GOZADAS'] } } },
+      include: { rubro: true },
     });
-    const topeIndemnizatorio = (config?.parametros as { topeIndemnizatorio?: number } | null)?.topeIndemnizatorio;
-    if (typeof topeIndemnizatorio !== 'number') return repositorioParametrosPorDefecto;
-    return conTopeIndemnizatorio(repositorioParametrosPorDefecto, topeIndemnizatorio);
+
+    let repositorio = repositorioParametrosPorDefecto;
+
+    const configTope = configs.find((c) => c.rubro.codigo === 'IND_ANTIGUEDAD');
+    const topeIndemnizatorio = (configTope?.parametros as { topeIndemnizatorio?: number } | null)?.topeIndemnizatorio;
+    if (typeof topeIndemnizatorio === 'number') {
+      repositorio = conTopeIndemnizatorio(repositorio, topeIndemnizatorio);
+    }
+
+    const configVacaciones = configs.find((c) => c.rubro.codigo === 'VAC_NO_GOZADAS');
+    const parametrosVacaciones = configVacaciones?.parametros as {
+      diasVacacionesHasta5Anios?: number;
+      diasVacaciones5a10Anios?: number;
+      diasVacaciones10a20Anios?: number;
+      diasVacacionesMasDe20Anios?: number;
+    } | null;
+    if (parametrosVacaciones) {
+      const override: Partial<DiasVacacionesPorAntiguedad> = {};
+      if (parametrosVacaciones.diasVacacionesHasta5Anios !== undefined) override.hasta5Anios = parametrosVacaciones.diasVacacionesHasta5Anios;
+      if (parametrosVacaciones.diasVacaciones5a10Anios !== undefined) override.de5a10Anios = parametrosVacaciones.diasVacaciones5a10Anios;
+      if (parametrosVacaciones.diasVacaciones10a20Anios !== undefined) override.de10a20Anios = parametrosVacaciones.diasVacaciones10a20Anios;
+      if (parametrosVacaciones.diasVacacionesMasDe20Anios !== undefined) override.masDe20Anios = parametrosVacaciones.diasVacacionesMasDe20Anios;
+      if (Object.keys(override).length > 0) {
+        repositorio = conDiasVacacionesPorAntiguedad(repositorio, override);
+      }
+    }
+
+    return repositorio;
   }
 
   /**

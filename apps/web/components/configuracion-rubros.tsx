@@ -4,13 +4,16 @@ import { FormEvent, useState } from 'react';
 import { ConfiguracionRubro, apiClient } from '@/lib/api-client';
 
 /** Panel de configuración de conceptos fijos y variables por cliente — ver
- * docs/motor-calculo.md. Los rubros legales (esLegal=true, p.ej. indemnización
- * por antigüedad) no se pueden desactivar ni pasar a "variable": el backend
- * (ConfiguracionesRubroService) rechaza esos cambios porque violarían la
- * legislación laboral argentina (LCT art. 245 y concordantes). Solo se puede
- * ajustar el tope indemnizatorio propio del convenio, y el motor de cálculo
- * sigue garantizando el piso del 67% de la MRMNH (doctrina "Vizzoti") sin
- * importar ese tope. */
+ * docs/motor-calculo.md §9. Los rubros legales (esLegal=true, p.ej. indemnización
+ * por antigüedad, vacaciones no gozadas) no se pueden desactivar ni pasar a
+ * "variable": el backend (ConfiguracionesRubroService) rechaza esos cambios
+ * porque violarían la legislación laboral argentina. Solo admiten los
+ * parámetros normativos propios habilitados por rubro (tope indemnizatorio
+ * para IND_ANTIGUEDAD; días de vacaciones por tramo de antigüedad del
+ * convenio colectivo aplicable, para VAC_NO_GOZADAS) — el motor de cálculo
+ * sigue garantizando siempre el piso legal de cada uno (67% de la MRMNH,
+ * doctrina "Vizzoti", y DIAS_VACACIONES_LCT respectivamente) sin importar lo
+ * que se configure acá. */
 export function ConfiguracionRubros({ clienteId, inicial }: { clienteId: string; inicial: ConfiguracionRubro[] }) {
   const [configuraciones, setConfiguraciones] = useState(inicial);
   const [errorPorRubro, setErrorPorRubro] = useState<Record<string, string>>({});
@@ -18,14 +21,14 @@ export function ConfiguracionRubros({ clienteId, inicial }: { clienteId: string;
   const [nuevoConcepto, setNuevoConcepto] = useState({ codigo: '', nombre: '', valorFijo: '' });
   const [errorNuevo, setErrorNuevo] = useState<string | null>(null);
 
-  async function guardarTope(codigoRubro: string, topeIndemnizatorio: number) {
+  async function guardarParametros(codigoRubro: string, parametros: Record<string, number>) {
     setGuardandoRubro(codigoRubro);
     setErrorPorRubro((prev) => ({ ...prev, [codigoRubro]: '' }));
     try {
       const actualizado = await apiClient.guardarConfiguracionRubro(clienteId, codigoRubro, {
         tipo: 'fijo',
         activo: true,
-        parametros: { topeIndemnizatorio },
+        parametros,
       });
       setConfiguraciones((prev) => prev.map((c) => (c.rubro.codigo === codigoRubro ? actualizado : c)));
     } catch (error) {
@@ -81,7 +84,7 @@ export function ConfiguracionRubros({ clienteId, inicial }: { clienteId: string;
               <tr>
                 <th className="px-4 py-2 font-medium">Concepto</th>
                 <th className="px-4 py-2 font-medium">Base legal</th>
-                <th className="px-4 py-2 font-medium">Tope indemnizatorio propio</th>
+                <th className="px-4 py-2 font-medium">Parámetros propios (piso legal siempre garantizado)</th>
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -92,7 +95,7 @@ export function ConfiguracionRubros({ clienteId, inicial }: { clienteId: string;
                   config={config}
                   guardando={guardandoRubro === config.rubro.codigo}
                   error={errorPorRubro[config.rubro.codigo]}
-                  onGuardarTope={(tope) => guardarTope(config.rubro.codigo, tope)}
+                  onGuardar={(parametros) => guardarParametros(config.rubro.codigo, parametros)}
                 />
               ))}
             </tbody>
@@ -177,19 +180,117 @@ export function ConfiguracionRubros({ clienteId, inicial }: { clienteId: string;
   );
 }
 
+/** Tramos de antigüedad de `DiasVacacionesPorAntiguedad` (motor-calculo) → clave de
+ * `parametros.VAC_NO_GOZADAS` (ver ConfiguracionesRubroService.CLAVES_DIAS_VACACIONES)
+ * + el piso legal de cada tramo (art. 150 LCT), solo para mostrarlo como referencia. */
+const TRAMOS_DIAS_VACACIONES = [
+  { clave: 'diasVacacionesHasta5Anios', etiqueta: 'hasta 5 años', pisoLegal: 14 },
+  { clave: 'diasVacaciones5a10Anios', etiqueta: '5 a 10 años', pisoLegal: 21 },
+  { clave: 'diasVacaciones10a20Anios', etiqueta: '10 a 20 años', pisoLegal: 28 },
+  { clave: 'diasVacacionesMasDe20Anios', etiqueta: '+20 años', pisoLegal: 35 },
+] as const;
+
 function FilaRubroFijo({
   config,
   guardando,
   error,
-  onGuardarTope,
+  onGuardar,
 }: {
   config: ConfiguracionRubro;
   guardando: boolean;
   error?: string;
-  onGuardarTope: (tope: number) => void;
+  onGuardar: (parametros: Record<string, number>) => void;
 }) {
   const [tope, setTope] = useState(config.parametros?.topeIndemnizatorio?.toString() ?? '');
-  const editable = config.rubro.codigo === 'IND_ANTIGUEDAD';
+  const [diasPorTramo, setDiasPorTramo] = useState<Record<string, string>>(
+    Object.fromEntries(TRAMOS_DIAS_VACACIONES.map((t) => [t.clave, config.parametros?.[t.clave]?.toString() ?? ''])),
+  );
+
+  if (config.rubro.codigo === 'IND_ANTIGUEDAD') {
+    return (
+      <tr>
+        <td className="px-4 py-2">
+          {config.rubro.nombre}
+          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-500">
+            fijo
+          </span>
+        </td>
+        <td className="px-4 py-2 text-slate-500">{config.rubro.baseLegal}</td>
+        <td className="px-4 py-2">
+          <label className="mr-1 text-xs text-slate-400">Tope indemnizatorio ($)</label>
+          <input
+            className="w-32 rounded border border-slate-300 px-2 py-1 text-sm"
+            placeholder="genérico"
+            value={tope}
+            onChange={(e) => setTope(e.target.value)}
+          />
+        </td>
+        <td className="px-4 py-2">
+          <button
+            disabled={guardando}
+            onClick={() => onGuardar({ topeIndemnizatorio: Number(tope) })}
+            className="rounded border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+          >
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        </td>
+      </tr>
+    );
+  }
+
+  if (config.rubro.codigo === 'VAC_NO_GOZADAS') {
+    return (
+      <tr>
+        <td className="px-4 py-2 align-top">
+          {config.rubro.nombre}
+          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-500">
+            fijo
+          </span>
+        </td>
+        <td className="px-4 py-2 align-top text-slate-500">{config.rubro.baseLegal}</td>
+        <td className="px-4 py-2 align-top">
+          <p className="mb-1 text-xs text-slate-400">
+            Días anuales por convenio colectivo, si otorga más que el piso legal (dejar vacío = piso legal)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {TRAMOS_DIAS_VACACIONES.map((t) => (
+              <div key={t.clave}>
+                <label className="block text-[10px] text-slate-400">
+                  {t.etiqueta} (LCT: {t.pisoLegal})
+                </label>
+                <input
+                  className="w-16 rounded border border-slate-300 px-2 py-1 text-sm"
+                  placeholder={String(t.pisoLegal)}
+                  value={diasPorTramo[t.clave]}
+                  onChange={(e) => setDiasPorTramo((prev) => ({ ...prev, [t.clave]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+        </td>
+        <td className="px-4 py-2 align-top">
+          <button
+            disabled={guardando}
+            onClick={() =>
+              onGuardar(
+                Object.fromEntries(
+                  TRAMOS_DIAS_VACACIONES.filter((t) => diasPorTramo[t.clave] !== '').map((t) => [
+                    t.clave,
+                    Number(diasPorTramo[t.clave]),
+                  ]),
+                ),
+              )
+            }
+            className="rounded border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+          >
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <tr>
@@ -201,29 +302,9 @@ function FilaRubroFijo({
       </td>
       <td className="px-4 py-2 text-slate-500">{config.rubro.baseLegal}</td>
       <td className="px-4 py-2">
-        {editable ? (
-          <input
-            className="w-32 rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="genérico"
-            value={tope}
-            onChange={(e) => setTope(e.target.value)}
-          />
-        ) : (
-          <span className="text-slate-400">No aplica</span>
-        )}
+        <span className="text-slate-400">No aplica</span>
       </td>
-      <td className="px-4 py-2">
-        {editable && (
-          <button
-            disabled={guardando}
-            onClick={() => onGuardarTope(Number(tope))}
-            className="rounded border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
-          >
-            {guardando ? 'Guardando…' : 'Guardar'}
-          </button>
-        )}
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      </td>
+      <td className="px-4 py-2"></td>
     </tr>
   );
 }

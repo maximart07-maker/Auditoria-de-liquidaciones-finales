@@ -27,6 +27,14 @@ export interface VariablesCaso {
   /** Sueldo mensual vigente al egreso, usado para valuar el día de vacaciones. */
   sueldoMensualActual: number;
   diasVacacionesGozadosEnElAnio: number;
+  /** Días de vacaciones anuales que el cliente sostiene que corresponden a este
+   * empleado (p.ej. un beneficio propio por encima de LCT/convenio), a cargar
+   * a mano caso por caso. Nunca reduce lo que corresponde por ley o convenio:
+   * `calcularVacacionesNoGozadas` solo lo toma si es mayor a `DIAS_VACACIONES_LCT`
+   * y a la tabla de `ParametrosNormativos.diasVacacionesPorAntiguedad` vigente
+   * (LCT/convenio, lo que sea más alto) — 0 = sin valor cargado, no hay piso a
+   * comparar. */
+  diasVacacionesCorrespondientesManual: number;
   /** Días de vacaciones adeudados de períodos (años) anteriores al de la extinción,
    * que la empresa nunca otorgó ni compensó — control aparte del proporcional del
    * año en curso (`diasVacacionesGozadosEnElAnio`/`VAC_NO_GOZADAS`). Se carga tal

@@ -39,6 +39,7 @@ interface VariablesCaso {
   mejorRemuneracionMensualNormalYHabitual: number;  // "MRMNH", base del art. 245 — ver §2.1, no se carga a mano
   sueldoMensualActual: number;                       // base de vacaciones no gozadas — ver §2.1, se deriva por defecto
   diasVacacionesGozadosEnElAnio: number;
+  diasVacacionesCorrespondientesManual: number;       // override manual de días anuales, si supera ley/convenio — ver §9 (opcional, default 0)
   diasVacacionesPendientesPeriodosAnteriores: number; // deuda de vacaciones de años anteriores (opcional, default 0)
   preavisoOtorgado: boolean;
   convenioColectivo: string;
@@ -234,12 +235,19 @@ function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
 
 `sueldoMensualActual` se deriva por defecto de la `RemuneracionMensual` filtrada por el catálogo del cliente — ver §2.1.
 
+La antigüedad para el tramo de días usa `aniosCompletos` (años completos, sin redondear), **no** `aniosConFraccion` — esa regla de "fracción mayor a 3 meses cuenta año entero" es específica del art. 245 (indemnización por antigüedad), no del art. 150; aplicarla acá adelantaría de tramo antes de tiempo (p.ej. 19 años y 9 meses caería en el tramo "+20 años" en vez de "10 a 20 años").
+
+Los días anuales que corresponden son el **mayor** entre tres fuentes — piso legal, tabla del convenio/cliente y el valor manual del caso, si lo hay (§9) — nunca el menor: ninguna de las personalizaciones puede *bajar* lo que corresponde por ley.
+
 ```
-diasPorAntiguedad = segunTablaAntiguedad(antigüedadEnAnios, parametros.diasVacacionesPorAntiguedad)
+diasSegunLey = segunTablaAntiguedad(antigüedadEnAniosCompletos, DIAS_VACACIONES_LCT)          // piso, art. 150 LCT
+diasSegunConvenio = segunTablaAntiguedad(antigüedadEnAniosCompletos, parametros.diasVacacionesPorAntiguedad)  // convenio/cliente, §9
+diasSegunLeyOConvenio = max(diasSegunLey, diasSegunConvenio)
+diasAnuales = max(diasSegunLeyOConvenio, diasVacacionesCorrespondientesManual)  // override manual del caso, §9 — 0 si no se cargó
 
 // proporcional a meses trabajados en el año calendario de la extinción
 mesesTrabajadosEnElAnio = mesesCompletos(inicioDelAnio o fechaIngreso, fechaEgreso)
-diasProporcionales = round(diasPorAntiguedad / 12 * mesesTrabajadosEnElAnio)
+diasProporcionales = round(diasAnuales / 12 * mesesTrabajadosEnElAnio)
 diasNoGozados = diasProporcionales - diasVacacionesGozadosEnElAnio
 
 valorDia = sueldoMensualActual / parametros.divisorVacaciones   // divisor 25, LCT
@@ -366,9 +374,11 @@ Cada función de cálculo (`calcularIndemnizacionAntiguedad`, `calcularSACPropor
 
 Cada cliente puede tener su propia combinación de conceptos (`Rubro`) a través de `ConfiguracionRubroCliente` (`apps/api/prisma/schema.prisma`), gestionada por `ConfiguracionesRubroService` (`apps/api/src/configuraciones-rubro/`):
 
-- **Conceptos fijos** (`Rubro.esLegal = true`): los 8 rubros del catálogo base (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas del año en curso y de períodos anteriores, y el SAC sobre cada una de esas dos). El servicio **rechaza** cualquier intento de desactivarlos, pasarlos a "variable" o asignarles un monto manual — siempre los determina el motor de cálculo.
-  - Único ajuste permitido: el **tope indemnizatorio** propio del convenio del cliente (`parametros.topeIndemnizatorio`, whitelisted en `PARAMETROS_PERMITIDOS_POR_RUBRO`), validado por `validarTopeIndemnizatorio` (`packages/motor-calculo/src/validaciones/tope-indemnizatorio.ts`) — debe ser un número positivo.
-  - Ese tope se inyecta en el cálculo envolviendo el repositorio de parámetros con `conTopeIndemnizatorio` (`packages/motor-calculo/src/parametros.ts`), pero **nunca elude el piso del 67% de la MRMNH** de la doctrina CSJN "Vizzoti": `calcularIndemnizacionAntiguedad` sigue aplicando `Math.max(base, 0.67 * mrmnh)` sobre el resultado, sea cual sea el tope configurado.
+- **Conceptos fijos** (`Rubro.esLegal = true`): los 8 rubros del catálogo base (indemnización por antigüedad, preaviso, integración del mes, SAC proporcional, vacaciones no gozadas del año en curso y de períodos anteriores, y el SAC sobre cada una de esas dos). El servicio **rechaza** cualquier intento de desactivarlos, pasarlos a "variable" o asignarles un monto manual — siempre los determina el motor de cálculo. Dos ajustes permitidos, ambos whitelisted en `PARAMETROS_PERMITIDOS_POR_RUBRO`:
+  - **IND_ANTIGUEDAD**: el **tope indemnizatorio** propio del convenio del cliente (`parametros.topeIndemnizatorio`), validado por `validarTopeIndemnizatorio` (`packages/motor-calculo/src/validaciones/tope-indemnizatorio.ts`) — debe ser un número positivo. Se inyecta envolviendo el repositorio de parámetros con `conTopeIndemnizatorio` (`packages/motor-calculo/src/parametros.ts`), pero **nunca elude el piso del 67% de la MRMNH** de la doctrina CSJN "Vizzoti": `calcularIndemnizacionAntiguedad` sigue aplicando `Math.max(base, 0.67 * mrmnh)` sobre el resultado, sea cual sea el tope configurado.
+  - **VAC_NO_GOZADAS**: la **tabla de días de vacaciones por tramo de antigüedad** que otorga el convenio colectivo aplicable a los empleados de este cliente, cuando mejora el piso legal — cuatro claves independientes (`diasVacacionesHasta5Anios`, `diasVacaciones5a10Anios`, `diasVacaciones10a20Anios`, `diasVacacionesMasDe20Anios`; solo hace falta cargar los tramos que el convenio mejora, el resto sigue en el piso legal), validadas por `validarDiasVacaciones` (número entero positivo). Se inyecta con `conDiasVacacionesPorAntiguedad`. Igual que con el tope, **nunca elude el piso legal**: `calcularVacacionesNoGozadas` siempre toma el mayor entre `DIAS_VACACIONES_LCT` (piso, art. 150 LCT) y lo configurado, tramo por tramo — un valor por debajo del piso legal simplemente se ignora, no hace falta que el cliente lo valide a mano.
+    - **Nota de alcance**: esto es una personalización *por cliente*, no un modelado genérino de convenios colectivos (eso vive en `ParametrosNormativos`/`RepositorioParametrosNormativos`, hoy solo con el registro "GENERICO" — ver §8, "Próximos pasos de modelado"). Sirve para el caso común de un cliente cuyos empleados están todos bajo el mismo convenio; si un cliente tiene empleados bajo convenios distintos con tablas de días distintas, hoy no se puede distinguir por empleado — haría falta modelar cada convenio como un `ParametrosNormativos` propio.
+  - Además, a nivel de **caso** (no de cliente), el auditor puede cargar `diasVacacionesCorrespondientesManual` en la pestaña Variables: días anuales que el cliente reconoce para ese empleado puntual (p.ej. un beneficio individual por encima de LCT/convenio), opcional. Mismo criterio de piso: `calcularVacacionesNoGozadas` solo lo toma si es *mayor* al máximo entre el piso legal y la tabla de convenio/cliente — si carga un valor menor, se ignora silenciosamente (no hay forma de que este campo *reduzca* lo que corresponde).
 - **Conceptos variables** (`Rubro.esLegal = false`): ítems negociados propios del cliente (premios, bonos, gratificaciones no legales) que se dan de alta bajo demanda con un código, nombre y `valorFijo`, sin piso legal.
 
 `AuditoriasService.ejecutar()` resuelve el repositorio de parámetros normativos a usar por cliente (`repositorioParametrosParaCliente`) antes de invocar `calcularLiquidacionSistema`, de modo que la personalización por cliente queda reflejada en cada auditoría sin tocar el motor puro.

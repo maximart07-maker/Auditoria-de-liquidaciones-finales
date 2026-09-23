@@ -7,7 +7,11 @@ import { VariableCaso, apiClient } from '@/lib/api-client';
 /** Las claves que el motor de cálculo necesita (ver docs/motor-calculo.md §2) —
  * la MRMNH no está acá porque se deriva del histórico de remuneraciones, y
  * sueldoMensualActual es opcional: si no se carga, se autocompleta con la
- * remuneración del mes de egreso (filtrada por el catálogo de conceptos). */
+ * remuneración del mes de egreso (filtrada por el catálogo de conceptos).
+ * diasVacacionesCorrespondientesManual también es opcional: solo hace falta
+ * si el cliente le reconoce a este empleado más días de vacaciones que los
+ * que corresponden por LCT/convenio (nunca baja ese piso, solo puede subirlo —
+ * ver §4.5 y ConfiguracionRubros para el piso por convenio a nivel cliente). */
 function valorDe(variables: VariableCaso[], clave: string): string {
   return variables.find((v) => v.clave === clave)?.valor ?? '';
 }
@@ -19,6 +23,7 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
     diasVacacionesGozadosEnElAnio: valorDe(variables, 'diasVacacionesGozadosEnElAnio'),
     preavisoOtorgado: valorDe(variables, 'preavisoOtorgado') === 'true',
     diasVacacionesPendientesPeriodosAnteriores: valorDe(variables, 'diasVacacionesPendientesPeriodosAnteriores'),
+    diasVacacionesCorrespondientesManual: valorDe(variables, 'diasVacacionesCorrespondientesManual'),
   });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +62,15 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
               apiClient.guardarVariable(casoId, {
                 clave: 'diasVacacionesPendientesPeriodosAnteriores',
                 valor: form.diasVacacionesPendientesPeriodosAnteriores,
+                fuente: 'manual',
+              }),
+            ]
+          : []),
+        ...(form.diasVacacionesCorrespondientesManual
+          ? [
+              apiClient.guardarVariable(casoId, {
+                clave: 'diasVacacionesCorrespondientesManual',
+                valor: form.diasVacacionesCorrespondientesManual,
                 fuente: 'manual',
               }),
             ]
@@ -124,6 +138,17 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
             className="w-32 rounded border border-slate-300 px-2 py-1 text-sm"
             value={form.diasVacacionesPendientesPeriodosAnteriores}
             onChange={(e) => setForm((prev) => ({ ...prev, diasVacacionesPendientesPeriodosAnteriores: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500">
+            Días anuales que corresponden, si superan ley/convenio <span className="text-slate-400">— opcional</span>
+          </label>
+          <input
+            className="w-32 rounded border border-slate-300 px-2 py-1 text-sm"
+            placeholder="auto (LCT/convenio)"
+            value={form.diasVacacionesCorrespondientesManual}
+            onChange={(e) => setForm((prev) => ({ ...prev, diasVacacionesCorrespondientesManual: e.target.value }))}
           />
         </div>
         <label className="flex items-center gap-1.5 text-sm text-slate-600">

@@ -54,12 +54,21 @@ export function diferenciaEnMeses(desde: Date, hasta: Date): number {
 
 /** Antigüedad en años para el art. 245 LCT: los años completos entre `fechaIngreso` y
  * `fechaEgreso`, más un año adicional si la fracción posterior al último aniversario
- * supera los 3 meses (fracción mayor a 3 meses se computa como año entero). */
+ * supera los 3 meses (fracción mayor a 3 meses se computa como año entero). Esta regla
+ * de redondeo es específica del art. 245 (indemnización por antigüedad) — para la
+ * tabla de días de vacaciones por antigüedad (art. 150 LCT) usar `aniosCompletos`. */
 export function aniosConFraccion(fechaIngreso: Date, fechaEgreso: Date): number {
   const mesesTotales = diferenciaEnMeses(fechaIngreso, fechaEgreso);
   const aniosCompletos = Math.floor(mesesTotales / 12);
   const mesesFraccion = mesesTotales % 12;
   return aniosCompletos + (mesesFraccion > 3 ? 1 : 0);
+}
+
+/** Antigüedad en años completos entre `fechaIngreso` y `fechaEgreso`, sin la regla de
+ * redondeo del art. 245 (`aniosConFraccion`) — para el tramo de la tabla de días de
+ * vacaciones por antigüedad (art. 150 LCT), que no tiene esa regla. */
+export function aniosCompletos(fechaIngreso: Date, fechaEgreso: Date): number {
+  return Math.floor(diferenciaEnMeses(fechaIngreso, fechaEgreso) / 12);
 }
 
 /** Meses trabajados en un período, para el proporcional de vacaciones: los meses

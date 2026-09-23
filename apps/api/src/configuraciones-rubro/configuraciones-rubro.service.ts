@@ -1,8 +1,21 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { validarTopeIndemnizatorio, TopeIndemnizatorioInvalidoError } from '@audit/motor-calculo';
+import {
+  validarTopeIndemnizatorio,
+  TopeIndemnizatorioInvalidoError,
+  validarDiasVacaciones,
+  DiasVacacionesInvalidosError,
+} from '@audit/motor-calculo';
 import { Prisma, Rubro } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertConfiguracionRubroDto } from './dto/upsert-configuracion-rubro.dto';
+
+/** Claves de `parametros.VAC_NO_GOZADAS` → tramo de `DiasVacacionesPorAntiguedad` que reemplazan. */
+const CLAVES_DIAS_VACACIONES = [
+  'diasVacacionesHasta5Anios',
+  'diasVacaciones5a10Anios',
+  'diasVacaciones10a20Anios',
+  'diasVacacionesMasDe20Anios',
+] as const;
 
 /**
  * Claves de `parametros` habilitadas por rubro legal. Cualquier otra clave, o
@@ -10,9 +23,15 @@ import { UpsertConfiguracionRubroDto } from './dto/upsert-configuracion-rubro.dt
  * IND_ANTIGUEDAD solo admite el tope indemnizatorio propio del convenio del
  * cliente — el piso del 67% de la MRMNH (doctrina "Vizzoti") lo sigue aplicando
  * siempre el motor de cálculo, sin que este parámetro pueda relajarlo.
+ * VAC_NO_GOZADAS admite la tabla de días por tramo de antigüedad que otorga el
+ * convenio colectivo aplicable a los empleados de este cliente (puede mejorar
+ * el piso de `DIAS_VACACIONES_LCT`, nunca empeorarlo) — el motor sigue aplicando
+ * siempre ese piso legal tramo por tramo, sin que esta configuración pueda
+ * relajarlo (ver `calcularVacacionesNoGozadas`).
  */
 const PARAMETROS_PERMITIDOS_POR_RUBRO: Record<string, string[]> = {
   IND_ANTIGUEDAD: ['topeIndemnizatorio'],
+  VAC_NO_GOZADAS: [...CLAVES_DIAS_VACACIONES],
 };
 
 @Injectable()
@@ -130,6 +149,19 @@ export class ConfiguracionesRubroService {
         } catch (error) {
           if (error instanceof TopeIndemnizatorioInvalidoError) throw new BadRequestException(error.message);
           throw error;
+        }
+      }
+
+      if (rubro.codigo === 'VAC_NO_GOZADAS') {
+        for (const clave of CLAVES_DIAS_VACACIONES) {
+          const valor = dto.parametros[clave];
+          if (valor === undefined) continue;
+          try {
+            validarDiasVacaciones(valor);
+          } catch (error) {
+            if (error instanceof DiasVacacionesInvalidosError) throw new BadRequestException(`${clave}: ${error.message}`);
+            throw error;
+          }
         }
       }
     }

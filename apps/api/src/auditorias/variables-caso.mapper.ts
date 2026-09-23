@@ -77,6 +77,10 @@ export function variablesCasoDesde(
       'diasVacacionesGozadosEnElAnio',
       mapa.get('diasVacacionesGozadosEnElAnio')!,
     ),
+    diasVacacionesCorrespondientesManual: aNumeroOpcional(
+      'diasVacacionesCorrespondientesManual',
+      mapa.get('diasVacacionesCorrespondientesManual'),
+    ),
     diasVacacionesPendientesPeriodosAnteriores: aNumeroOpcional(
       'diasVacacionesPendientesPeriodosAnteriores',
       mapa.get('diasVacacionesPendientesPeriodosAnteriores'),
