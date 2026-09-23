@@ -186,6 +186,7 @@ export interface ResumenImportacionRecibo {
   conceptosSinMapear: { concepto: string; monto: number }[];
   rubrosLegalesNoEncontradosEnElRecibo: string[];
   baseCalculadaConCatalogo: boolean;
+  diasVacacionesPendientesPeriodosAnteriores: number | null;
 }
 
 export interface ResumenImportacionConceptos {

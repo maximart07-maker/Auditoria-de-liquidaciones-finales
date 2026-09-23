@@ -54,6 +54,12 @@ export interface ResumenImportacionRecibo {
    * (menos preciso: puede incluir conceptos remunerativos que la doctrina
    * excluye de la base del art. 245, como el SAC). */
   baseCalculadaConCatalogo: boolean;
+  /** Días de vacaciones de períodos anteriores (art. 156 LCT) que se
+   * autocompletaron desde la unidad del concepto "Vac No Gozadas Anterior"
+   * del recibo, como `VariableCaso` `diasVacacionesPendientesPeriodosAnteriores`
+   * (fuente "importado"). `null` si el recibo no trae ese concepto o no
+   * informa la unidad — en ese caso hay que cargarlo a mano. */
+  diasVacacionesPendientesPeriodosAnteriores: number | null;
 }
 
 export interface ResumenImportacionConceptos {
@@ -303,6 +309,33 @@ export class ImportacionesService {
       (codigo) => !rubrosDeclarados.some((r) => r.rubroCodigo === codigo),
     );
 
+    // El recibo trae, en la unidad del concepto "Vac No Gozadas Anterior", los
+    // días de vacaciones de períodos previos que la empresa reconoce como deuda
+    // — exactamente lo que pide `diasVacacionesPendientesPeriodosAnteriores`
+    // (art. 156 LCT, ver docs/motor-calculo.md §4.6). A diferencia de los días
+    // del año en curso (que el motor recalcula de forma independiente por
+    // antigüedad — art. 150), acá no hay una fórmula legal para derivarlo: es
+    // un dato histórico, así que tomar el que ya declaró la empresa en vez de
+    // dejarlo en 0 por defecto no compromete la independencia de la auditoría.
+    const diasVacacionesAnteriores = recibo.conceptos.find(
+      (c) => rubroParaConcepto(c.concepto) === 'VAC_NO_GOZADAS_ANTERIORES' && c.unidad !== null,
+    )?.unidad;
+    if (diasVacacionesAnteriores !== undefined) {
+      await this.prisma.variableCaso.upsert({
+        where: { casoId_clave: { casoId: caso.id, clave: 'diasVacacionesPendientesPeriodosAnteriores' } },
+        create: {
+          casoId: caso.id,
+          clave: 'diasVacacionesPendientesPeriodosAnteriores',
+          valor: String(diasVacacionesAnteriores),
+          fuente: 'importado',
+        },
+        update: {
+          valor: String(diasVacacionesAnteriores),
+          fuente: 'importado',
+        },
+      });
+    }
+
     return {
       empresaDelRecibo: recibo.empresaNombre,
       cuitDelRecibo: recibo.empresaCuit,
@@ -317,6 +350,7 @@ export class ImportacionesService {
       conceptosSinMapear,
       rubrosLegalesNoEncontradosEnElRecibo,
       baseCalculadaConCatalogo,
+      diasVacacionesPendientesPeriodosAnteriores: diasVacacionesAnteriores ?? null,
     };
   }
 

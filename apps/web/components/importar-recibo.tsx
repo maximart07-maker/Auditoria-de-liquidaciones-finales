@@ -119,6 +119,15 @@ export function ImportarRecibo({ clienteId }: { clienteId: string }) {
               : 'el cliente no tiene catálogo de conceptos cargado: se usó el total "Remunerativo" del recibo, que puede incluir conceptos como el SAC que no entran en esa base'}
           </p>
 
+          {resultado.diasVacacionesPendientesPeriodosAnteriores !== null && (
+            <p className="text-xs text-slate-500">
+              Días de vacaciones de períodos anteriores (art. 156 LCT): se autocompletaron{' '}
+              <strong>{resultado.diasVacacionesPendientesPeriodosAnteriores}</strong> desde el recibo (variable
+              &quot;diasVacacionesPendientesPeriodosAnteriores&quot;) — se pueden corregir en la pestaña Variables del
+              caso.
+            </p>
+          )}
+
           <div>
             <p className="text-xs font-medium text-slate-500">Rubros declarados por la empresa (del recibo)</p>
             <ul className="mt-1 space-y-0.5">
