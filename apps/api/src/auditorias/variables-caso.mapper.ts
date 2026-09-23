@@ -42,6 +42,11 @@ function aNumeroOpcional(clave: string, valor: string | undefined): number {
  * marcados `baseIndemnizacion=true`) — ver AuditoriasService y
  * docs/motor-calculo.md §2.4. Una variable manual `sueldoMensualActual`
  * cargada por el auditor tiene prioridad sobre este valor por defecto.
+ * @param baseSAC Base de `mejorRemuneracionSemestral` (SAC proporcional, arts.
+ * 121 a 123 LCT según Ley 23.041) derivada de la mejor `RemuneracionMensual`
+ * dentro del semestre calendario del egreso — ver AuditoriasService y
+ * `calcularBaseSAC`. Una variable manual `mejorRemuneracionSemestral` cargada
+ * por el auditor tiene prioridad sobre este valor por defecto.
  */
 export function variablesCasoDesde(
   caso: Caso,
@@ -49,6 +54,7 @@ export function variablesCasoDesde(
   variables: VariableCaso[],
   mrmnh: number,
   sueldoBaseIndemnizacion: number | null,
+  baseSAC: number | null,
 ): VariablesCaso {
   const mapa = new Map(variables.map((v) => [v.clave, v.valor]));
 
@@ -67,11 +73,22 @@ export function variablesCasoDesde(
     );
   }
 
+  const mejorRemuneracionSemestral = mapa.has('mejorRemuneracionSemestral')
+    ? aNumero('mejorRemuneracionSemestral', mapa.get('mejorRemuneracionSemestral')!)
+    : baseSAC;
+  if (mejorRemuneracionSemestral === null) {
+    throw new BadRequestException(
+      'Falta "mejorRemuneracionSemestral": no hay una remuneración mensual normal y habitual importada dentro ' +
+        'del semestre del egreso de la que derivarla, así que hay que cargarla a mano en Variables.',
+    );
+  }
+
   return {
     fechaIngreso: empleado.fechaIngreso,
     fechaEgreso: caso.fechaExtincion,
     tipoExtincion: caso.tipoExtincion,
     mejorRemuneracionMensualNormalYHabitual: mrmnh,
+    mejorRemuneracionSemestral,
     sueldoMensualActual,
     diasVacacionesGozadosEnElAnio: aNumero(
       'diasVacacionesGozadosEnElAnio',

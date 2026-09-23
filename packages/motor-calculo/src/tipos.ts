@@ -24,6 +24,13 @@ export interface VariablesCaso {
   tipoExtincion: TipoExtincion;
   /** "MRMNH": mejor remuneración mensual, normal y habitual — base del art. 245 LCT. */
   mejorRemuneracionMensualNormalYHabitual: number;
+  /** Mejor remuneración mensual, normal y habitual, devengada dentro del
+   * semestre calendario que contiene la fecha de egreso — base del SAC
+   * proporcional (arts. 121 a 123 LCT, según Ley 23.041). No es la misma
+   * ventana que `mejorRemuneracionMensualNormalYHabitual` (esa mira los
+   * últimos 12 meses, para el art. 245): acá solo importa el semestre en
+   * curso al momento del egreso. */
+  mejorRemuneracionSemestral: number;
   /** Sueldo mensual vigente al egreso, usado para valuar el día de vacaciones. */
   sueldoMensualActual: number;
   diasVacacionesGozadosEnElAnio: number;

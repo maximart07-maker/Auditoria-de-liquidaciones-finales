@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  calcularBaseSAC,
   calcularLiquidacionSistema,
   calcularMRMNH,
   conDiasVacacionesPorAntiguedad,
@@ -10,6 +11,7 @@ import {
   RubroDeclarado,
   Severidad,
   SinRemuneracionesError,
+  SinRemuneracionesSemestreError,
 } from '@audit/motor-calculo';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -48,12 +50,14 @@ export class AuditoriasService {
       caso.empleado.remuneracionesMensuales,
       caso.fechaExtincion,
     );
+    const baseSAC = this.baseSACDelCaso(caso.empleado.remuneracionesMensuales, caso.fechaExtincion);
     const variablesCaso = variablesCasoDesde(
       caso,
       caso.empleado,
       caso.variables,
       mrmnh.valor,
       sueldoBaseIndemnizacion,
+      baseSAC,
     );
     const repositorioParametros = await this.repositorioParametrosParaCliente(caso.empleado.clienteId);
     const liquidacionCalculada = calcularLiquidacionSistema(variablesCaso, repositorioParametros);
@@ -223,5 +227,32 @@ export class AuditoriasService {
       .filter((r) => r.periodo <= finDelMesDeEgreso)
       .sort((a, b) => b.periodo.getTime() - a.periodo.getTime())[0];
     return masReciente ? Number(masReciente.conceptosRemunerativos) : null;
+  }
+
+  /**
+   * Base por defecto de "mejor remuneración semestral" (SAC proporcional, arts.
+   * 121 a 123 LCT según Ley 23.041): la mejor `RemuneracionMensual` normal y
+   * habitual dentro del semestre calendario que contiene la fecha de egreso —
+   * ver `calcularBaseSAC`. A diferencia de la MRMNH (últimos 12 meses, art.
+   * 245), acá solo importa ese semestre. `null` si no hay ninguna remuneración
+   * normal y habitual cargada dentro de él (el auditor puede cargarla a mano).
+   */
+  private baseSACDelCaso(
+    remuneraciones: { periodo: Date; conceptosRemunerativos: Prisma.Decimal; esNormalYHabitual: boolean }[],
+    fechaEgreso: Date,
+  ): number | null {
+    try {
+      return calcularBaseSAC(
+        remuneraciones.map((r) => ({
+          periodo: r.periodo,
+          conceptosRemunerativos: Number(r.conceptosRemunerativos),
+          esNormalYHabitual: r.esNormalYHabitual,
+        })),
+        fechaEgreso,
+      ).valor;
+    } catch (error) {
+      if (error instanceof SinRemuneracionesSemestreError) return null;
+      throw error;
+    }
   }
 }

@@ -6,6 +6,7 @@ export * from './comparacion';
 export * from './validaciones/tope-indemnizatorio';
 export * from './validaciones/dias-vacaciones';
 export * from './mrmnh';
+export * from './sac-base';
 
 export { calcularIndemnizacionAntiguedad } from './rubros/indemnizacion-antiguedad';
 export { calcularPreaviso } from './rubros/preaviso';

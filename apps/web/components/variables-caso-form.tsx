@@ -11,7 +11,11 @@ import { VariableCaso, apiClient } from '@/lib/api-client';
  * diasVacacionesCorrespondientesManual también es opcional: solo hace falta
  * si el cliente le reconoce a este empleado más días de vacaciones que los
  * que corresponden por LCT/convenio (nunca baja ese piso, solo puede subirlo —
- * ver §4.5 y ConfiguracionRubros para el piso por convenio a nivel cliente). */
+ * ver §4.5 y ConfiguracionRubros para el piso por convenio a nivel cliente).
+ * mejorRemuneracionSemestral (base del SAC proporcional, arts. 121-123 LCT)
+ * también se autocompleta con la mejor RemuneracionMensual normal y habitual
+ * del semestre del egreso — distinta ventana que sueldoMensualActual/MRMNH,
+ * ver §4.4. */
 function valorDe(variables: VariableCaso[], clave: string): string {
   return variables.find((v) => v.clave === clave)?.valor ?? '';
 }
@@ -24,6 +28,7 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
     preavisoOtorgado: valorDe(variables, 'preavisoOtorgado') === 'true',
     diasVacacionesPendientesPeriodosAnteriores: valorDe(variables, 'diasVacacionesPendientesPeriodosAnteriores'),
     diasVacacionesCorrespondientesManual: valorDe(variables, 'diasVacacionesCorrespondientesManual'),
+    mejorRemuneracionSemestral: valorDe(variables, 'mejorRemuneracionSemestral'),
   });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +76,15 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
               apiClient.guardarVariable(casoId, {
                 clave: 'diasVacacionesCorrespondientesManual',
                 valor: form.diasVacacionesCorrespondientesManual,
+                fuente: 'manual',
+              }),
+            ]
+          : []),
+        ...(form.mejorRemuneracionSemestral
+          ? [
+              apiClient.guardarVariable(casoId, {
+                clave: 'mejorRemuneracionSemestral',
+                valor: form.mejorRemuneracionSemestral,
                 fuente: 'manual',
               }),
             ]
@@ -149,6 +163,17 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
             placeholder="auto (LCT/convenio)"
             value={form.diasVacacionesCorrespondientesManual}
             onChange={(e) => setForm((prev) => ({ ...prev, diasVacacionesCorrespondientesManual: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500">
+            Mejor remuneración del semestre (SAC, $) <span className="text-slate-400">— opcional</span>
+          </label>
+          <input
+            className="w-36 rounded border border-slate-300 px-2 py-1 text-sm"
+            placeholder="auto (del semestre)"
+            value={form.mejorRemuneracionSemestral}
+            onChange={(e) => setForm((prev) => ({ ...prev, mejorRemuneracionSemestral: e.target.value }))}
           />
         </div>
         <label className="flex items-center gap-1.5 text-sm text-slate-600">

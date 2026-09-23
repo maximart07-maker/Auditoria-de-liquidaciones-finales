@@ -37,6 +37,7 @@ interface VariablesCaso {
   tipoExtincion: 'despido_sin_causa' | 'despido_con_causa' | 'renuncia'
                | 'mutuo_acuerdo' | 'vencimiento_contrato' | 'fallecimiento';
   mejorRemuneracionMensualNormalYHabitual: number;  // "MRMNH", base del art. 245 — ver §2.1, no se carga a mano
+  mejorRemuneracionSemestral: number;                // base del SAC proporcional (arts. 121-123) — ver §2.1, se deriva por defecto
   sueldoMensualActual: number;                       // base de vacaciones no gozadas — ver §2.1, se deriva por defecto
   diasVacacionesGozadosEnElAnio: number;
   diasVacacionesCorrespondientesManual: number;       // override manual de días anuales, si supera ley/convenio — ver §9 (opcional, default 0)
@@ -72,6 +73,8 @@ function calcularMRMNH(remuneraciones: RemuneracionMensual[], fechaIngreso: Date
 `AuditoriasService.ejecutar()` llama a `calcularMRMNH` con el histórico del **empleado** del caso (`caso.empleado.remuneracionesMensuales`) antes de armar el resto de `VariablesCaso`; si no hay ningún mes normal/habitual dentro de la ventana, devuelve 400 con un mensaje claro para el auditor en vez de dejar auditar con un dato faltante. Es obligatorio: sin al menos un mes cargado para ese empleado, la auditoría no puede ejecutarse.
 
 `sueldoMensualActual` (base de `VAC_NO_GOZADAS`/`VAC_NO_GOZADAS_ANTERIORES`, §4.5-4.6) tampoco se carga como un número suelto por defecto: `AuditoriasService.sueldoBaseIndemnizacionDelCaso` toma el `conceptosRemunerativos` de la `RemuneracionMensual` más reciente hasta el mes de egreso inclusive — que ya viene filtrada por el catálogo de conceptos del cliente cuando existe (§2.4), a diferencia de la MRMNH acá no importa si el mes es "normal y habitual" (es la remuneración vigente al momento de la extinción, no la mejor del año). Una variable manual `sueldoMensualActual` cargada por el auditor tiene prioridad sobre este valor derivado; solo hace falta cargarla a mano si el empleado no tiene ninguna `RemuneracionMensual` importada hasta esa fecha.
+
+`mejorRemuneracionSemestral` (base de `SAC_PROP`, §4.4) tampoco es un número suelto por defecto, y **no es la misma ventana que la MRMNH**: los arts. 121 a 123 LCT (según el método de cálculo de la Ley 23.041 y su Decreto reglamentario 1078/1984) fijan el SAC como el 50% de la mejor remuneración devengada **dentro del semestre calendario** (ene-jun o jul-dic) que contiene el egreso — no de los últimos 12 meses, como el art. 245. `calcularBaseSAC` (`packages/motor-calculo/src/sac-base.ts`) filtra el histórico de `RemuneracionMensual` del empleado a ese semestre (y sigue exigiendo `esNormalYHabitual`) y toma la mejor; `AuditoriasService.baseSACDelCaso` la deriva por defecto. Una variable manual `mejorRemuneracionSemestral` tiene prioridad; solo hace falta cargarla a mano si no hay ninguna remuneración normal y habitual importada dentro de ese semestre.
 
 ### 2.2 Import masivo de nómina
 
@@ -199,7 +202,9 @@ sino:
     integracionMes = 0
 ```
 
-### 4.4 SAC proporcional (aguinaldo, Ley 23.041)
+### 4.4 SAC proporcional (aguinaldo, arts. 121 a 123 LCT y Ley 23.041)
+
+`mejorRemuneracionDelSemestre` es `mejorRemuneracionSemestral` — la mejor remuneración normal y habitual devengada **dentro del semestre calendario del egreso**, no la MRMNH del art. 245 (últimos 12 meses) — ver §2.1 y `calcularBaseSAC`.
 
 Se computa bajo la **convención comercial** (mes de 30 días, año de 360 — variante 30E/360), no con días calendario reales: cada semestre equivale siempre a 180 días, sin importar meses de 28 a 31 días ni años bisiestos.
 
@@ -226,7 +231,7 @@ function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
   const desde = maxFecha(inicio, v.fechaIngreso);
   const diasTrabajados = diasEntreComercial(desde, v.fechaEgreso) + 1;
   const diasTotales = diasEntreComercial(inicio, fin) + 1; // siempre 180
-  const monto = (v.mejorRemuneracionMensualNormalYHabitual / 2) * (diasTrabajados / diasTotales);
+  const monto = (v.mejorRemuneracionSemestral / 2) * (diasTrabajados / diasTotales);
   return { rubro: 'SAC_PROP', monto, detalle: { diasTrabajados, diasTotales, convencion: '30/360' } };
 }
 ```

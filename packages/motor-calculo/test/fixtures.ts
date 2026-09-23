@@ -10,6 +10,7 @@ export function variablesBase(overrides: Partial<VariablesCaso> = {}): Variables
     fechaEgreso: utc(2023, 5, 15),
     tipoExtincion: 'despido_sin_causa',
     mejorRemuneracionMensualNormalYHabitual: 100_000,
+    mejorRemuneracionSemestral: 100_000,
     sueldoMensualActual: 100_000,
     diasVacacionesGozadosEnElAnio: 0,
     diasVacacionesCorrespondientesManual: 0,

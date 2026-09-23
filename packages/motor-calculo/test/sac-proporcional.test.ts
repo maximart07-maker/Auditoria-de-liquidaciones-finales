@@ -7,7 +7,7 @@ describe('calcularSACProporcional', () => {
     const v = variablesBase({
       fechaIngreso: utc(2020, 1, 1),
       fechaEgreso: utc(2024, 6, 30),
-      mejorRemuneracionMensualNormalYHabitual: 120_000,
+      mejorRemuneracionSemestral: 120_000,
     });
 
     const resultado = calcularSACProporcional(v);
@@ -19,7 +19,7 @@ describe('calcularSACProporcional', () => {
     const v = variablesBase({
       fechaIngreso: utc(2024, 4, 1), // entra a mitad del semestre 1/1-30/6 => 90/180 días bajo la convención 30/360
       fechaEgreso: utc(2024, 6, 30),
-      mejorRemuneracionMensualNormalYHabitual: 120_000,
+      mejorRemuneracionSemestral: 120_000,
     });
 
     const resultado = calcularSACProporcional(v);
@@ -37,7 +37,7 @@ describe('calcularSACProporcional', () => {
     const v = variablesBase({
       fechaIngreso: utc(2023, 2, 1),
       fechaEgreso: utc(2023, 6, 30),
-      mejorRemuneracionMensualNormalYHabitual: 120_000,
+      mejorRemuneracionSemestral: 120_000,
     });
 
     const resultado = calcularSACProporcional(v);
