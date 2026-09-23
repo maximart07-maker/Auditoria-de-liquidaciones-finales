@@ -135,12 +135,67 @@ export interface ResumenImportacion {
   errores: string[];
 }
 
+export interface Rubro {
+  id: string;
+  codigo: string;
+  nombre: string;
+  baseLegal: string | null;
+}
+
+export interface CrearClienteInput {
+  razonSocial: string;
+  cuit: string;
+  industria?: string;
+  contactoEmail?: string;
+}
+
+export interface CrearEmpleadoInput {
+  clienteId: string;
+  nombre: string;
+  cuil: string;
+  fechaIngreso: string;
+  categoria?: string;
+  convenioColectivo?: string;
+  provincia?: string;
+}
+
+export interface CrearCasoInput {
+  empleadoId: string;
+  tipoExtincion: string;
+  fechaExtincion: string;
+}
+
+export interface SetVariableInput {
+  clave: string;
+  valor: string;
+  fuente: 'manual' | 'ocr' | 'importado';
+}
+
+export interface RubroMontoInput {
+  rubroCodigo: string;
+  monto: number;
+}
+
 export const apiClient = {
   listarClientes: () => request<Cliente[]>('/clientes'),
   obtenerCliente: (id: string) => request<Cliente>(`/clientes/${id}`),
+  crearCliente: (dto: CrearClienteInput) =>
+    request<Cliente>('/clientes', { method: 'POST', body: JSON.stringify(dto) }),
+  listarEmpleados: (clienteId: string) => request<Empleado[]>(`/empleados?clienteId=${clienteId}`),
+  crearEmpleado: (dto: CrearEmpleadoInput) =>
+    request<Empleado>('/empleados', { method: 'POST', body: JSON.stringify(dto) }),
   listarCasosIndividuales: (clienteId: string) => request<Caso[]>(`/casos?clienteId=${clienteId}`),
+  crearCaso: (dto: CrearCasoInput) => request<Caso>('/casos', { method: 'POST', body: JSON.stringify(dto) }),
   listarLotes: (clienteId: string) => request<unknown[]>(`/lotes?clienteId=${clienteId}`),
   obtenerCaso: (id: string) => request<CasoDetalle>(`/casos/${id}`),
+  guardarVariable: (casoId: string, dto: SetVariableInput) =>
+    request<VariableCaso>(`/casos/${casoId}/variables`, { method: 'PUT', body: JSON.stringify(dto) }),
+  guardarLiquidacionEmpresa: (casoId: string, rubros: RubroMontoInput[]) =>
+    request<Liquidacion>(`/casos/${casoId}/liquidaciones`, {
+      method: 'POST',
+      body: JSON.stringify({ origen: 'empresa', rubros }),
+    }),
+  listarRubros: () => request<Rubro[]>('/rubros'),
   ejecutarAuditoria: (casoId: string) =>
     request<Auditoria>(`/casos/${casoId}/auditorias`, { method: 'POST', body: JSON.stringify({}) }),
   listarConfiguracionesRubro: (clienteId: string) =>

@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { CasoDetalle } from '@/lib/api-client';
+import { useRouter } from 'next/navigation';
+import { CasoDetalle, apiClient } from '@/lib/api-client';
 import { EstadoBadge } from './ui/estado-badge';
 import { SeveridadBadge } from './ui/severidad-badge';
 import { RemuneracionesMensuales } from './remuneraciones-mensuales';
+import { VariablesCasoForm } from './variables-caso-form';
+import { LiquidacionEmpresaForm } from './liquidacion-empresa-form';
 
 const TABS = [
   'Datos base',
@@ -19,9 +22,25 @@ type Tab = (typeof TABS)[number];
 
 /** Ficha de caso con navegación por tabs — ver docs/flujo-ux.md §2 "Paso 4". */
 export function CasoTabs({ caso }: { caso: CasoDetalle }) {
+  const router = useRouter();
   const [tabActiva, setTabActiva] = useState<Tab>('Datos base');
+  const [ejecutando, setEjecutando] = useState(false);
+  const [errorAuditoria, setErrorAuditoria] = useState<string | null>(null);
   const ultimaAuditoria = caso.auditorias[0];
   const liquidacionEmpresa = caso.liquidaciones.find((l) => l.origen === 'empresa');
+
+  async function ejecutarAuditoria() {
+    setErrorAuditoria(null);
+    setEjecutando(true);
+    try {
+      await apiClient.ejecutarAuditoria(caso.id);
+      router.refresh();
+    } catch (e) {
+      setErrorAuditoria((e as Error).message);
+    } finally {
+      setEjecutando(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -75,40 +94,24 @@ export function CasoTabs({ caso }: { caso: CasoDetalle }) {
         </ul>
       )}
 
-      {tabActiva === 'Variables' && (
-        <table className="w-full rounded-lg border border-slate-200 bg-white text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Clave</th>
-              <th className="px-4 py-2 font-medium">Valor</th>
-              <th className="px-4 py-2 font-medium">Fuente</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {caso.variables.map((v) => (
-              <tr key={v.id} className={v.fuente === 'ocr' && Number(v.confianza) < 0.75 ? 'bg-amber-50' : ''}>
-                <td className="px-4 py-2 font-mono text-xs">{v.clave}</td>
-                <td className="px-4 py-2">{v.valor}</td>
-                <td className="px-4 py-2 text-xs text-slate-500">{v.fuente}</td>
-              </tr>
-            ))}
-            {caso.variables.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-slate-400">
-                  Sin variables cargadas todavía.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
+      {tabActiva === 'Variables' && <VariablesCasoForm casoId={caso.id} variables={caso.variables} />}
 
       {tabActiva === 'Liquidación empresa' && (
-        <TablaRubros titulo="Declarado por la empresa" rubros={liquidacionEmpresa?.rubros ?? []} />
+        <LiquidacionEmpresaForm casoId={caso.id} rubrosDeclarados={liquidacionEmpresa?.rubros ?? []} />
       )}
 
       {tabActiva === 'Auditoría' && (
         <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={ejecutarAuditoria}
+              disabled={ejecutando}
+              className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {ejecutando ? 'Ejecutando…' : 'Ejecutar auditoría'}
+            </button>
+            {errorAuditoria && <p className="text-xs text-red-600">{errorAuditoria}</p>}
+          </div>
           {!ultimaAuditoria && <p className="text-sm text-slate-400">Todavía no se ejecutó ninguna auditoría.</p>}
           {ultimaAuditoria && (
             <table className="w-full rounded-lg border border-slate-200 bg-white text-sm">
@@ -146,31 +149,6 @@ export function CasoTabs({ caso }: { caso: CasoDetalle }) {
             : 'El informe se habilita cuando el caso está auditado o cerrado.'}
         </p>
       )}
-    </div>
-  );
-}
-
-function TablaRubros({ titulo, rubros }: { titulo: string; rubros: { monto: string; rubro: { nombre: string } }[] }) {
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-slate-600">{titulo}</h3>
-      <table className="w-full rounded-lg border border-slate-200 bg-white text-sm">
-        <tbody className="divide-y divide-slate-100">
-          {rubros.map((r, i) => (
-            <tr key={i}>
-              <td className="px-4 py-2">{r.rubro.nombre}</td>
-              <td className="px-4 py-2 text-right">${Number(r.monto).toLocaleString('es-AR')}</td>
-            </tr>
-          ))}
-          {rubros.length === 0 && (
-            <tr>
-              <td colSpan={2} className="px-4 py-6 text-center text-slate-400">
-                Sin rubros cargados.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
     </div>
   );
 }

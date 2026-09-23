@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { CrearClienteForm } from '@/components/crear-cliente-form';
 
 export default async function SeleccionClientePage() {
   let clientes: Awaited<ReturnType<typeof apiClient.listarClientes>> = [];
@@ -15,6 +16,7 @@ export default async function SeleccionClientePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Clientes</h1>
+        <CrearClienteForm />
       </div>
 
       {error && (

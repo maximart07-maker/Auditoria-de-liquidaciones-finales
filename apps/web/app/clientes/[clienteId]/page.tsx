@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { EstadoBadge } from '@/components/ui/estado-badge';
+import { EmpleadosYCasos } from '@/components/empleados-y-casos';
 
 export default async function PanelClientePage({ params }: { params: { clienteId: string } }) {
-  const [cliente, casos] = await Promise.all([
+  const [cliente, casos, empleados] = await Promise.all([
     apiClient.obtenerCliente(params.clienteId),
     apiClient.listarCasosIndividuales(params.clienteId),
+    apiClient.listarEmpleados(params.clienteId),
   ]);
 
   return (
@@ -74,6 +76,8 @@ export default async function PanelClientePage({ params }: { params: { clienteId
           </table>
         </div>
       </section>
+
+      <EmpleadosYCasos clienteId={cliente.id} inicial={empleados} />
     </div>
   );
 }
