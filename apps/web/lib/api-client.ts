@@ -176,6 +176,17 @@ export interface RubroMontoInput {
   monto: number;
 }
 
+export interface ResumenImportacionRecibo {
+  empresaDelRecibo: string | null;
+  cuitDelRecibo: string | null;
+  empleado: { id: string; nombre: string; cuil: string; creado: boolean };
+  casoId: string;
+  remuneracionMensual: { periodo: string; conceptosRemunerativos: number; esNormalYHabitual: boolean };
+  rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[];
+  conceptosSinMapear: { concepto: string; monto: number }[];
+  rubrosLegalesNoEncontradosEnElRecibo: string[];
+}
+
 export const apiClient = {
   listarClientes: () => request<Cliente[]>('/clientes'),
   obtenerCliente: (id: string) => request<Cliente>(`/clientes/${id}`),
@@ -226,5 +237,25 @@ export const apiClient = {
       throw new Error(`API ${respuesta.status} en /importaciones/nomina: ${cuerpo}`);
     }
     return respuesta.json() as Promise<ResumenImportacion>;
+  },
+  importarRecibo: async (
+    clienteId: string,
+    archivo: File,
+    tipoExtincion: string,
+    fechaExtincion: string,
+  ): Promise<ResumenImportacionRecibo> => {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    formData.append('tipoExtincion', tipoExtincion);
+    formData.append('fechaExtincion', fechaExtincion);
+    const respuesta = await fetch(`${API_URL}/clientes/${clienteId}/importaciones/recibo`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!respuesta.ok) {
+      const cuerpo = await respuesta.text();
+      throw new Error(`API ${respuesta.status} en /importaciones/recibo: ${cuerpo}`);
+    }
+    return respuesta.json() as Promise<ResumenImportacionRecibo>;
   },
 };

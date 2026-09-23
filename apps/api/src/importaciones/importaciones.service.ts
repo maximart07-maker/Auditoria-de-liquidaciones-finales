@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilaNominaImportada, parsearNomina } from './nomina-importada.parser';
+import { ImportarReciboDto } from './dto/importar-recibo.dto';
+import { parsearReciboLiquidacion, rubroParaConcepto } from './recibo-liquidacion.parser';
 
 interface MesAgregado {
   conceptosRemunerativos: number;
@@ -25,6 +28,21 @@ export interface ResumenImportacion {
   empleadosActualizados: number;
   mesesImportados: number;
   errores: string[];
+}
+
+export interface ResumenImportacionRecibo {
+  empresaDelRecibo: string | null;
+  cuitDelRecibo: string | null;
+  empleado: { id: string; nombre: string; cuil: string; creado: boolean };
+  casoId: string;
+  remuneracionMensual: { periodo: string; conceptosRemunerativos: number; esNormalYHabitual: boolean };
+  rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[];
+  /** Conceptos del recibo que no matchearon ningún rubro del motor (informativo). */
+  conceptosSinMapear: { concepto: string; monto: number }[];
+  /** Rubros legales que el recibo no trae (p.ej. indemnización, preaviso,
+   * integración) — quedan declarados en $0, lo que la auditoría marca como
+   * diferencia del 100% contra lo calculado si el sistema los calcula. */
+  rubrosLegalesNoEncontradosEnElRecibo: string[];
 }
 
 @Injectable()
@@ -88,6 +106,102 @@ export class ImportacionesService {
   }
 
   /**
+   * Importa un recibo de sueldo (PDF) de liquidación final: da de alta al
+   * empleado si no existe (CUIL, nombre, categoría, fecha de ingreso, todos
+   * del recibo), crea el `Caso` con el tipo y la fecha de extinción que indicó
+   * el auditor (el recibo no los trae — no son datos de nómina), y carga la
+   * `Liquidacion` de origen "empresa" con los rubros que el recibo sí trae
+   * (SAC proporcional, vacaciones no gozadas actuales/anteriores y su SAC).
+   * También registra la `RemuneracionMensual` del período del recibo. No es
+   * idempotente: reimportar el mismo recibo crea un caso nuevo cada vez.
+   */
+  async importarRecibo(clienteId: string, buffer: Buffer, dto: ImportarReciboDto): Promise<ResumenImportacionRecibo> {
+    await this.asegurarCliente(clienteId);
+    const recibo = await parsearReciboLiquidacion(buffer);
+
+    let empleadoCreado = false;
+    const empleadoId = await this.obtenerOCrearEmpleado(
+      clienteId,
+      recibo.cuil,
+      { nombre: recibo.nombre, fechaIngreso: recibo.fechaIngreso, categoria: recibo.categoria },
+      (creado) => {
+        empleadoCreado = creado;
+      },
+    );
+
+    const caso = await this.prisma.caso.create({
+      data: {
+        empleadoId,
+        tipoExtincion: dto.tipoExtincion,
+        fechaExtincion: new Date(dto.fechaExtincion),
+      },
+    });
+
+    await this.prisma.remuneracionMensual.upsert({
+      where: { empleadoId_periodo: { empleadoId, periodo: recibo.periodo } },
+      create: {
+        empleadoId,
+        periodo: recibo.periodo,
+        conceptosRemunerativos: recibo.remunerativo,
+        esNormalYHabitual: !recibo.esPeriodoAtipico,
+        detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
+        fuente: 'importado',
+      },
+      update: {
+        conceptosRemunerativos: recibo.remunerativo,
+        esNormalYHabitual: !recibo.esPeriodoAtipico,
+        detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
+        fuente: 'importado',
+      },
+    });
+
+    const rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[] = [];
+    const conceptosSinMapear: { concepto: string; monto: number }[] = [];
+    for (const concepto of recibo.conceptos) {
+      const rubroCodigo = rubroParaConcepto(concepto.concepto);
+      if (rubroCodigo) rubrosDeclarados.push({ rubroCodigo, concepto: concepto.concepto, monto: concepto.monto });
+      else conceptosSinMapear.push({ concepto: concepto.concepto, monto: concepto.monto });
+    }
+
+    if (rubrosDeclarados.length > 0) {
+      const rubrosDb = await this.prisma.rubro.findMany({
+        where: { codigo: { in: rubrosDeclarados.map((r) => r.rubroCodigo) } },
+      });
+      const rubroIdPorCodigo = new Map(rubrosDb.map((r) => [r.codigo, r.id]));
+      await this.prisma.liquidacion.create({
+        data: {
+          casoId: caso.id,
+          origen: 'empresa',
+          rubros: {
+            create: rubrosDeclarados
+              .filter((r) => rubroIdPorCodigo.has(r.rubroCodigo))
+              .map((r) => ({ rubroId: rubroIdPorCodigo.get(r.rubroCodigo)!, monto: r.monto })),
+          },
+        },
+      });
+    }
+
+    const rubrosLegalesNoEncontradosEnElRecibo = ['IND_ANTIGUEDAD', 'PREAVISO', 'INTEGRACION_MES'].filter(
+      (codigo) => !rubrosDeclarados.some((r) => r.rubroCodigo === codigo),
+    );
+
+    return {
+      empresaDelRecibo: recibo.empresaNombre,
+      cuitDelRecibo: recibo.empresaCuit,
+      empleado: { id: empleadoId, nombre: recibo.nombre, cuil: recibo.cuil, creado: empleadoCreado },
+      casoId: caso.id,
+      remuneracionMensual: {
+        periodo: recibo.periodo.toISOString().slice(0, 10),
+        conceptosRemunerativos: recibo.remunerativo,
+        esNormalYHabitual: !recibo.esPeriodoAtipico,
+      },
+      rubrosDeclarados,
+      conceptosSinMapear,
+      rubrosLegalesNoEncontradosEnElRecibo,
+    };
+  }
+
+  /**
    * Agrupa las filas sueltas (un renglón por concepto) en un agregado por
    * empleado (CUIL) y período: suma `Monto` en `conceptosRemunerativos` cuando
    * `TIPO='REMU'`, y en `conceptosNoRemunerativos` en cualquier otro caso.
@@ -127,7 +241,7 @@ export class ImportacionesService {
   private async obtenerOCrearEmpleado(
     clienteId: string,
     cuil: string,
-    datos: DatosEmpleado,
+    datos: { nombre: string; fechaIngreso: Date; categoria: string | null },
     reportarCreado: (creado: boolean) => void,
   ): Promise<string> {
     const existente = await this.prisma.empleado.findUnique({ where: { clienteId_cuil: { clienteId, cuil } } });

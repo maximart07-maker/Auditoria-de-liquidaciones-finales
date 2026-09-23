@@ -86,6 +86,17 @@ Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `P
 
 `Empleado`, `Modelo`, `Depto.`, `Tipo`, `Contrato` y `Código` no se usan (no tienen un campo equivalente en el modelo hoy). El resto de columnas (`Doc`, `Apellido y Nombre`, `Período`, `Ingreso`, `Categoría`, `Proceso`, `Concepto`, `Monto`, `TIPO`) son obligatorias — el import rechaza el archivo si falta alguna. La importación es **idempotente**: reimportar el mismo archivo actualiza (no duplica) los mismos `Empleado`/`RemuneracionMensual` vía upsert por `[clienteId, cuil]` / `[empleadoId, periodo]`.
 
+### 2.3 Import del recibo de liquidación final (crea el caso)
+
+`POST /clientes/:clienteId/importaciones/recibo` (`apps/api/src/importaciones/recibo-liquidacion.parser.ts`) parsea el **recibo de sueldo en PDF** que el sistema de liquidación emite para la liquidación final — el mismo formato estándar de recibo de haberes (encabezado con datos de la empresa y del legajo, tabla de conceptos liquidados) que ya usan varios proveedores de nómina argentinos. A diferencia del import de nómina (§2.2), este da de alta **el `Empleado` y crea el `Caso`** en un solo paso:
+
+- **Empleado**: CUIL, nombre, categoría y fecha de ingreso salen del encabezado del recibo; se da de alta si el CUIL no existe todavía en el cliente (mismo criterio que §2.2).
+- **Caso**: el recibo **no trae** el motivo ni la fecha de extinción (no son datos de nómina — viven en el telegrama/acuerdo de desvinculación) — el formulario los pide aparte, con un desplegable para el motivo y una fecha, ambos completables a mano.
+- **`RemuneracionMensual`** del período del recibo: `conceptosRemunerativos` = el total "Remunerativo" del recibo. Si el recibo trae algún concepto de "días/horas no trabajados" o "descuento días ingreso/egreso" (señal de mes parcial, típico de una liquidación final), se marca `esNormalYHabitual=false` — igual criterio que el "ajuste" de §2.2.
+- **`Liquidacion` de origen "empresa"**: se cargan los rubros que el recibo sí trae, mapeados por **palabras clave en el nombre del concepto** (no por código — los códigos son específicos del proveedor de nómina, no un estándar): "sac" + "proporcional" → `SAC_PROP`; "vac" + "no goz" (sin "anterior") → `VAC_NO_GOZADAS`; "vac" + "no goz" + "anterior" → `VAC_NO_GOZADAS_ANTERIORES`; con "sac" antepuesto, los mismos dos casos → `SAC_S_VAC` / `SAC_S_VAC_ANTERIORES`. **El recibo de liquidación final típicamente no incluye la indemnización por antigüedad, el preaviso ni la integración del mes** (se liquidan por otro instrumento) — quedan declarados en $0, que es justamente la señal que la auditoría necesita marcar si esos rubros se pagaron por fuera del recibo.
+
+No es idempotente: reimportar el mismo recibo crea un `Caso` nuevo cada vez (no hay forma de saber, solo con el PDF, si dos importaciones corresponden al mismo trámite de baja).
+
 ## 3. Rubros aplicables según tipo de extinción
 
 El motor no calcula "todos los rubros siempre": primero resuelve qué rubros corresponden al `tipo_extincion` del caso.
