@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { VariableCaso, apiClient } from '@/lib/api-client';
 
 /** Las claves que el motor de cálculo necesita (ver docs/motor-calculo.md §2) —
- * la MRMNH no está acá porque se deriva del histórico de remuneraciones. */
+ * la MRMNH no está acá porque se deriva del histórico de remuneraciones, y
+ * sueldoMensualActual es opcional: si no se carga, se autocompleta con la
+ * remuneración del mes de egreso (filtrada por el catálogo de conceptos). */
 function valorDe(variables: VariableCaso[], clave: string): string {
   return variables.find((v) => v.clave === clave)?.valor ?? '';
 }
@@ -24,18 +26,22 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
   async function guardar(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
-    if (!form.sueldoMensualActual || !form.diasVacacionesGozadosEnElAnio) {
-      setError('Completá al menos el sueldo mensual actual y los días de vacaciones gozados en el año.');
+    if (!form.diasVacacionesGozadosEnElAnio) {
+      setError('Completá al menos los días de vacaciones gozados en el año.');
       return;
     }
     setGuardando(true);
     try {
       await Promise.all([
-        apiClient.guardarVariable(casoId, {
-          clave: 'sueldoMensualActual',
-          valor: form.sueldoMensualActual,
-          fuente: 'manual',
-        }),
+        ...(form.sueldoMensualActual
+          ? [
+              apiClient.guardarVariable(casoId, {
+                clave: 'sueldoMensualActual',
+                valor: form.sueldoMensualActual,
+                fuente: 'manual',
+              }),
+            ]
+          : []),
         apiClient.guardarVariable(casoId, {
           clave: 'diasVacacionesGozadosEnElAnio',
           valor: form.diasVacacionesGozadosEnElAnio,
@@ -94,9 +100,12 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
 
       <form onSubmit={guardar} className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-slate-300 p-4">
         <div>
-          <label className="block text-xs text-slate-500">Sueldo mensual actual ($)</label>
+          <label className="block text-xs text-slate-500">
+            Sueldo mensual actual ($) <span className="text-slate-400">— opcional</span>
+          </label>
           <input
             className="w-36 rounded border border-slate-300 px-2 py-1 text-sm"
+            placeholder="auto (del recibo)"
             value={form.sueldoMensualActual}
             onChange={(e) => setForm((prev) => ({ ...prev, sueldoMensualActual: e.target.value }))}
           />

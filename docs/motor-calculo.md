@@ -37,7 +37,7 @@ interface VariablesCaso {
   tipoExtincion: 'despido_sin_causa' | 'despido_con_causa' | 'renuncia'
                | 'mutuo_acuerdo' | 'vencimiento_contrato' | 'fallecimiento';
   mejorRemuneracionMensualNormalYHabitual: number;  // "MRMNH", base del art. 245 — ver §2.1, no se carga a mano
-  sueldoMensualActual: number;                       // para SAC/vacaciones si difiere de MRMNH
+  sueldoMensualActual: number;                       // base de vacaciones no gozadas — ver §2.1, se deriva por defecto
   diasVacacionesGozadosEnElAnio: number;
   diasVacacionesPendientesPeriodosAnteriores: number; // deuda de vacaciones de años anteriores (opcional, default 0)
   preavisoOtorgado: boolean;
@@ -70,6 +70,8 @@ function calcularMRMNH(remuneraciones: RemuneracionMensual[], fechaIngreso: Date
 
 `AuditoriasService.ejecutar()` llama a `calcularMRMNH` con el histórico del **empleado** del caso (`caso.empleado.remuneracionesMensuales`) antes de armar el resto de `VariablesCaso`; si no hay ningún mes normal/habitual dentro de la ventana, devuelve 400 con un mensaje claro para el auditor en vez de dejar auditar con un dato faltante. Es obligatorio: sin al menos un mes cargado para ese empleado, la auditoría no puede ejecutarse.
 
+`sueldoMensualActual` (base de `VAC_NO_GOZADAS`/`VAC_NO_GOZADAS_ANTERIORES`, §4.5-4.6) tampoco se carga como un número suelto por defecto: `AuditoriasService.sueldoBaseIndemnizacionDelCaso` toma el `conceptosRemunerativos` de la `RemuneracionMensual` más reciente hasta el mes de egreso inclusive — que ya viene filtrada por el catálogo de conceptos del cliente cuando existe (§2.4), a diferencia de la MRMNH acá no importa si el mes es "normal y habitual" (es la remuneración vigente al momento de la extinción, no la mejor del año). Una variable manual `sueldoMensualActual` cargada por el auditor tiene prioridad sobre este valor derivado; solo hace falta cargarla a mano si el empleado no tiene ninguna `RemuneracionMensual` importada hasta esa fecha.
+
 ### 2.2 Import masivo de nómina
 
 Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `POST /clientes/:clienteId/importaciones/nomina` (`apps/api/src/importaciones/`) acepta un `.xlsx` con un **renglón por concepto liquidado, por empleado y período** — el formato típico de export de un sistema de liquidación de sueldos:
@@ -93,7 +95,9 @@ Cargar mes a mes a mano no escala para una plantilla de cientos de empleados. `P
 
 - **Empleado**: CUIL, nombre, categoría y fecha de ingreso salen del encabezado del recibo; se da de alta si el CUIL no existe todavía en el cliente (mismo criterio que §2.2).
 - **Caso**: el recibo **no trae** el motivo ni la fecha de extinción (no son datos de nómina — viven en el telegrama/acuerdo de desvinculación) — el formulario los pide aparte, con un desplegable para el motivo y una fecha, ambos completables a mano.
-- **`RemuneracionMensual`** del período del recibo: `conceptosRemunerativos` se calcula sumando, código por código, los conceptos del recibo cuyo `ConceptoCliente.baseIndemnizacion` es `true` (§2.4) — si el cliente todavía no importó su catálogo, se cae al total "Remunerativo" que imprime el recibo (menos preciso: puede incluir conceptos remunerativos que la doctrina excluye de la base del art. 245, como el SAC proporcional). La respuesta del import (`baseCalculadaConCatalogo`) indica cuál de los dos se usó. Si el recibo trae algún concepto de "días/horas no trabajados" o "descuento días ingreso/egreso" (señal de mes parcial, típico de una liquidación final), se marca `esNormalYHabitual=false` — igual criterio que el "ajuste" de §2.2.
+- **`RemuneracionMensual`** del período del recibo: `conceptosRemunerativos` se calcula sumando, código por código, los conceptos del recibo cuyo `ConceptoCliente.baseIndemnizacion` es `true` (§2.4) — si el cliente todavía no importó su catálogo, se cae al total "Remunerativo" que imprime el recibo (menos preciso: puede incluir conceptos remunerativos que la doctrina excluye de la base del art. 245, como el SAC proporcional). La respuesta del import (`baseCalculadaConCatalogo`) indica cuál de los dos se usó.
+
+  `esNormalYHabitual` sigue el mismo criterio: **con catálogo**, se asume `true` — los conceptos de ajuste por mes parcial (días/horas no trabajados, descuento por ingreso/egreso — típicos de una liquidación final con fecha de egreso mid-mes) normalmente no están marcados `baseIndemnizacion=true` en el catálogo, así que `conceptosRemunerativos` ya queda depurado de esa distorsión y el mes sí es representativo para competir por la MRMNH (p.ej. una renuncia el 15 del mes: el SAC proporcional y los descuentos de días son mecánica normal de liquidación final, no bajan el sueldo básico que entra en la base). **Sin catálogo**, en cambio, `conceptosRemunerativos` es el total "Remunerativo" impreso —que si incluye esos conceptos de ajuste sí distorsiona el mes— y se seguía marcando `esNormalYHabitual=false` si el recibo trae alguno de esos conceptos (igual criterio que el "ajuste" de §2.2).
 - **`Liquidacion` de origen "empresa"**: se cargan los rubros que el recibo sí trae, mapeados por **palabras clave en el nombre del concepto** (no por código — los códigos son específicos del proveedor de nómina, no un estándar): "sac" + "proporcional" → `SAC_PROP`; "vac" + "no goz" (sin "anterior") → `VAC_NO_GOZADAS`; "vac" + "no goz" + "anterior" → `VAC_NO_GOZADAS_ANTERIORES`; con "sac" antepuesto, los mismos dos casos → `SAC_S_VAC` / `SAC_S_VAC_ANTERIORES`. **El recibo de liquidación final típicamente no incluye la indemnización por antigüedad, el preaviso ni la integración del mes** (se liquidan por otro instrumento) — quedan declarados en $0, que es justamente la señal que la auditoría necesita marcar si esos rubros se pagaron por fuera del recibo.
 
 No es idempotente: reimportar el mismo recibo crea un `Caso` nuevo cada vez (no hay forma de saber, solo con el PDF, si dos importaciones corresponden al mismo trámite de baja).
@@ -227,6 +231,8 @@ function calcularSACProporcional(v: VariablesCaso): RubroCalculado {
 ```
 
 ### 4.5 Vacaciones no gozadas (art. 150 y 156 LCT)
+
+`sueldoMensualActual` se deriva por defecto de la `RemuneracionMensual` filtrada por el catálogo del cliente — ver §2.1.
 
 ```
 diasPorAntiguedad = segunTablaAntiguedad(antigüedadEnAnios, parametros.diasVacacionesPorAntiguedad)

@@ -42,7 +42,17 @@ export class AuditoriasService {
       caso.empleado.fechaIngreso,
       caso.fechaExtincion,
     );
-    const variablesCaso = variablesCasoDesde(caso, caso.empleado, caso.variables, mrmnh.valor);
+    const sueldoBaseIndemnizacion = this.sueldoBaseIndemnizacionDelCaso(
+      caso.empleado.remuneracionesMensuales,
+      caso.fechaExtincion,
+    );
+    const variablesCaso = variablesCasoDesde(
+      caso,
+      caso.empleado,
+      caso.variables,
+      mrmnh.valor,
+      sueldoBaseIndemnizacion,
+    );
     const repositorioParametros = await this.repositorioParametrosParaCliente(caso.empleado.clienteId);
     const liquidacionCalculada = calcularLiquidacionSistema(variablesCaso, repositorioParametros);
 
@@ -160,5 +170,26 @@ export class AuditoriasService {
       if (error instanceof SinRemuneracionesError) throw new BadRequestException(error.message);
       throw error;
     }
+  }
+
+  /**
+   * Base por defecto de "sueldo mensual actual" (vacaciones no gozadas, arts.
+   * 150/156 LCT): la `RemuneracionMensual` más reciente hasta el mes de egreso
+   * inclusive. Su `conceptosRemunerativos` ya viene filtrado por el catálogo de
+   * conceptos del cliente cuando existe (solo los marcados `baseIndemnizacion`,
+   * ver ImportacionesService.importarRecibo/importarNomina y docs/motor-calculo.md
+   * §2.4) — a diferencia de la MRMNH, acá no importa si el mes es "normal y
+   * habitual": es la remuneración vigente al momento de la extinción. `null` si
+   * el empleado no tiene ninguna remuneración cargada hasta esa fecha.
+   */
+  private sueldoBaseIndemnizacionDelCaso(
+    remuneraciones: { periodo: Date; conceptosRemunerativos: Prisma.Decimal }[],
+    fechaEgreso: Date,
+  ): number | null {
+    const finDelMesDeEgreso = new Date(Date.UTC(fechaEgreso.getUTCFullYear(), fechaEgreso.getUTCMonth() + 1, 0));
+    const masReciente = remuneraciones
+      .filter((r) => r.periodo <= finDelMesDeEgreso)
+      .sort((a, b) => b.periodo.getTime() - a.periodo.getTime())[0];
+    return masReciente ? Number(masReciente.conceptosRemunerativos) : null;
   }
 }

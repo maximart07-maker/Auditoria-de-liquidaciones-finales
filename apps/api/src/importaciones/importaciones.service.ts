@@ -186,6 +186,16 @@ export class ImportacionesService {
           .filter((c) => catalogo.get(normalizarCodigoConcepto(c.codigo)) === true)
           .reduce((total, c) => total + c.monto, 0)
       : recibo.remunerativo;
+    // `recibo.esPeriodoAtipico` marca meses parciales por los conceptos de ajuste
+    // que trae el propio recibo (días no trabajados, descuento por ingreso/egreso
+    // — típicos de una liquidación final). Con catálogo, esos conceptos de ajuste
+    // no suelen estar marcados `baseIndemnizacion=true` (ver docs/motor-calculo.md
+    // §2.4), así que ya quedan afuera de `conceptosRemunerativos`: el monto que
+    // queda es la remuneración normal del mes, no una atípica a medias, y sí debe
+    // competir por ser la MRMNH. Sin catálogo seguimos confiando en la heurística
+    // de nombre porque `recibo.remunerativo` (el total impreso) sí puede incluir
+    // esos ajustes.
+    const esNormalYHabitual = baseCalculadaConCatalogo ? true : !recibo.esPeriodoAtipico;
 
     let empleadoCreado = false;
     const empleadoId = await this.obtenerOCrearEmpleado(
@@ -211,13 +221,13 @@ export class ImportacionesService {
         empleadoId,
         periodo: recibo.periodo,
         conceptosRemunerativos,
-        esNormalYHabitual: !recibo.esPeriodoAtipico,
+        esNormalYHabitual,
         detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
         fuente: 'importado',
       },
       update: {
         conceptosRemunerativos,
-        esNormalYHabitual: !recibo.esPeriodoAtipico,
+        esNormalYHabitual,
         detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
         fuente: 'importado',
       },
@@ -261,7 +271,7 @@ export class ImportacionesService {
       remuneracionMensual: {
         periodo: recibo.periodo.toISOString().slice(0, 10),
         conceptosRemunerativos,
-        esNormalYHabitual: !recibo.esPeriodoAtipico,
+        esNormalYHabitual,
       },
       rubrosDeclarados,
       conceptosSinMapear,

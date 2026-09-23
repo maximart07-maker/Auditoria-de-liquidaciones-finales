@@ -6,12 +6,12 @@ import { Caso, Empleado, VariableCaso } from '@prisma/client';
  * vive en `Empleado` (fechaIngreso, convenioColectivo) y `Caso` (fechaExtincion,
  * tipoExtincion) — ver docs/motor-calculo.md §2. La MRMNH no se carga acá: se
  * deriva del histórico de `RemuneracionMensual` vía `calcularMRMNH` (ver
- * AuditoriasService.repositorioParametrosParaCliente y §2.1). */
-const CLAVES_REQUERIDAS = [
-  'sueldoMensualActual',
-  'diasVacacionesGozadosEnElAnio',
-  'preavisoOtorgado',
-] as const;
+ * AuditoriasService.repositorioParametrosParaCliente y §2.1). `sueldoMensualActual`
+ * tampoco es obligatoria acá: se deriva por defecto de la `RemuneracionMensual`
+ * del mes de egreso (ver AuditoriasService.sueldoBaseIndemnizacionDelCaso) y
+ * solo hace falta cargarla a mano si no hay ninguna remuneración importada para
+ * ese mes. */
+const CLAVES_REQUERIDAS = ['diasVacacionesGozadosEnElAnio', 'preavisoOtorgado'] as const;
 
 function aBooleano(valor: string): boolean {
   return valor === 'true';
@@ -34,12 +34,21 @@ function aNumeroOpcional(clave: string, valor: string | undefined): number {
 /** Traduce las `VariableCaso` sueltas (clave/valor) cargadas por el auditor, más
  * la MRMNH ya derivada del histórico de remuneraciones mensuales, en las
  * `VariablesCaso` tipadas que espera @audit/motor-calculo. Lanza si falta alguna
- * variable obligatoria para el tipo de extinción del caso. */
+ * variable obligatoria para el tipo de extinción del caso.
+ *
+ * @param sueldoBaseIndemnizacion Base de `sueldoMensualActual` (vacaciones no
+ * gozadas, arts. 150/156 LCT) derivada de la `RemuneracionMensual` del mes de
+ * egreso ya filtrada por el catálogo de conceptos del cliente (solo los
+ * marcados `baseIndemnizacion=true`) — ver AuditoriasService y
+ * docs/motor-calculo.md §2.4. Una variable manual `sueldoMensualActual`
+ * cargada por el auditor tiene prioridad sobre este valor por defecto.
+ */
 export function variablesCasoDesde(
   caso: Caso,
   empleado: Empleado,
   variables: VariableCaso[],
   mrmnh: number,
+  sueldoBaseIndemnizacion: number | null,
 ): VariablesCaso {
   const mapa = new Map(variables.map((v) => [v.clave, v.valor]));
 
@@ -48,12 +57,22 @@ export function variablesCasoDesde(
     throw new BadRequestException(`Faltan variables obligatorias para auditar el caso: ${faltantes.join(', ')}`);
   }
 
+  const sueldoMensualActual = mapa.has('sueldoMensualActual')
+    ? aNumero('sueldoMensualActual', mapa.get('sueldoMensualActual')!)
+    : sueldoBaseIndemnizacion;
+  if (sueldoMensualActual === null) {
+    throw new BadRequestException(
+      'Falta "sueldoMensualActual": no hay una remuneración mensual importada para el mes de egreso ' +
+        'de la que derivarlo, así que hay que cargarlo a mano en Variables.',
+    );
+  }
+
   return {
     fechaIngreso: empleado.fechaIngreso,
     fechaEgreso: caso.fechaExtincion,
     tipoExtincion: caso.tipoExtincion,
     mejorRemuneracionMensualNormalYHabitual: mrmnh,
-    sueldoMensualActual: aNumero('sueldoMensualActual', mapa.get('sueldoMensualActual')!),
+    sueldoMensualActual,
     diasVacacionesGozadosEnElAnio: aNumero(
       'diasVacacionesGozadosEnElAnio',
       mapa.get('diasVacacionesGozadosEnElAnio')!,
