@@ -37,21 +37,27 @@ packages/
 # 1. Instalar dependencias de todo el monorepo
 npm install
 
-# 2. Levantar Postgres/Redis/MinIO
+# 2. Compilar el paquete de motor de cálculo (apps/api lo consume ya compilado
+#    desde node_modules vía workspace; su dist/ no se versiona en git)
+npm run build --workspace packages/motor-calculo
+
+# 3. Levantar Postgres/Redis/MinIO
 docker compose up -d
 
-# 3. Configurar variables de entorno
+# 4. Configurar variables de entorno
 cp .env.example apps/api/.env
 cp .env.example apps/web/.env.local   # solo necesita NEXT_PUBLIC_API_URL
 
-# 4. Aplicar el schema de Prisma y cargar el catálogo de rubros
+# 5. Aplicar el schema de Prisma y cargar el catálogo de rubros
 npm run prisma:migrate --workspace apps/api
 npm run prisma:seed --workspace apps/api
 
-# 5. Levantar backend y frontend (en dos terminales)
+# 6. Levantar backend y frontend (en dos terminales)
 npm run dev:api   # http://localhost:3001
 npm run dev:web   # http://localhost:3000
 ```
+
+Si después modificás algo dentro de `packages/motor-calculo`, hay que repetir el paso 2 (`npm run build --workspace packages/motor-calculo`) y reiniciar `npm run dev:api` para que el backend vea el cambio — el watch de `nest start` no recompila ese paquete externo.
 
 Con la API sin datos, `/` mostrará "sin clientes cargados" — se puede crear el primer cliente con `POST /clientes` (ver `apps/api/src/clientes`).
 
