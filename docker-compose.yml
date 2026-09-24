@@ -18,7 +18,9 @@ services:
       - "6379:6379"
 
   minio:
-    image: minio/minio:latest
+    # MinIO retiró la imagen minio/minio de Docker Hub para pulls anónimos en
+    # 2024 (pide "docker login"); quay.io sigue siendo público y gratuito.
+    image: quay.io/minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
