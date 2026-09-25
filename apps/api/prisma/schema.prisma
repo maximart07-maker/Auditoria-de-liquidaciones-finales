@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  admin
+  auditor
+  cliente_lectura
+}
+
+enum MotivoLote {
+  reestructuracion
+  despido_masivo
+  auditoria_periodica
+}
+
+enum TipoExtincion {
+  despido_sin_causa
+  despido_con_causa
+  renuncia
+  mutuo_acuerdo
+  vencimiento_contrato
+  fallecimiento
+}
+
+enum EstadoCaso {
+  borrador
+  en_revision
+  auditado
+  cerrado
+}
+
+enum TipoDocumento {
+  recibo_sueldo
+  telegrama
+  liquidacion_final
+  cct
+  otro
+}
+
+enum EstadoProcesamiento {
+  pendiente
+  procesando
+  procesado
+  error
+}
+
+enum FuenteVariable {
+  manual
+  ocr
+  importado
+}
+
+enum OrigenLiquidacion {
+  empresa
+  sistema
+}
+
+enum EstadoLiquidacion {
+  vigente
+  reemplazada
+}
+
+enum EstadoAuditoria {
+  ok
+  con_diferencias
+  requiere_revision
+}
+
+enum SeveridadHallazgo {
+  alta
+  media
+  baja
+}
+
+enum EstadoHallazgo {
+  pendiente
+  validado
+  descartado
+}
+
+enum TipoConcepto {
+  fijo
+  variable
+}
+
+enum TipoConceptoNomina {
+  remunerativo
+  no_remunerativo
+  descuento
+}
+
+model Cliente {
+  id            String   @id @default(uuid())
+  razonSocial   String   @map("razon_social")
+  cuit          String   @unique
+  industria     String?
+  contactoEmail String?  @map("contacto_email")
+  fechaAlta     DateTime @default(now()) @map("fecha_alta")
+
+  usuarios             Usuario[]
+  empleados            Empleado[]
+  lotes                Lote[]
+  configuracionesRubro ConfiguracionRubroCliente[]
+  conceptos            ConceptoCliente[]
+
+  @@map("cliente")
+}
+
+/// Catálogo propio de cada cliente para los códigos de concepto de su sistema
+/// de liquidación de nómina (no son un estándar — cada cliente/proveedor de
+/// nómina numera distinto). `baseIndemnizacion=true` es la señal precisa de
+/// qué conceptos entran en la base del art. 245 LCT (MRMNH): un concepto puede
+/// ser remunerativo y aun así no computar para la indemnización (p.ej. el SAC,
+/// excluido por doctrina aunque sea remunerativo) — por eso los importadores
+/// de nómina y de recibo usan este campo, no el `tipo`, para armar
+/// `RemuneracionMensual.conceptosRemunerativos`. Ver docs/motor-calculo.md §2.4.
+model ConceptoCliente {
+  id                String             @id @default(uuid())
+  clienteId         String             @map("cliente_id")
+  codigo            String
+  descripcion       String
+  tipo              TipoConceptoNomina
+  caracteristica    TipoConcepto?
+  baseIndemnizacion Boolean            @map("base_indemnizacion")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@unique([clienteId, codigo])
+  @@map("concepto_cliente")
+}
+
+model Usuario {
+  id        String     @id @default(uuid())
+  clienteId String?    @map("cliente_id")
+  nombre    String
+  email     String     @unique
+  rol       RolUsuario
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  cliente    Cliente?    @relation(fields: [clienteId], references: [id])
+  auditorias Auditoria[]
+
+  @@map("usuario")
+}
+
+model Empleado {
+  id                String   @id @default(uuid())
+  clienteId         String   @map("cliente_id")
+  nombre            String
+  cuil              String
+  fechaIngreso      DateTime @map("fecha_ingreso") @db.Date
+  categoria         String?
+  convenioColectivo String?  @map("convenio_colectivo")
+  provincia         String?
+  remuneracionBase  Decimal? @map("remuneracion_base") @db.Decimal(14, 2)
+
+  cliente                 Cliente               @relation(fields: [clienteId], references: [id])
+  casos                   Caso[]
+  remuneracionesMensuales RemuneracionMensual[]
+
+  @@unique([clienteId, cuil])
+  @@map("empleado")
+}
+
+/// Un mes de remuneración del empleado (manual, OCR de recibos de sueldo, o
+/// importado en lote desde el sistema de liquidación de nómina), base para que
+/// el motor de cálculo derive la MRMNH (mejor remuneración mensual, normal y
+/// habitual — art. 245 LCT) en vez de que se tipee un único número a mano.
+/// Cuelga del `Empleado` (no del `Caso`): se puede cargar/importar antes de que
+/// exista ningún caso de desvinculación, y cuando se abre uno para ese
+/// empleado el motor ya tiene el historial disponible. `conceptosRemunerativos`
+/// es la suma de los conceptos remunerativos del mes (básico, horas extra,
+/// comisiones, premios habituales, etc. — excluye lo no remunerativo);
+/// `esNormalYHabitual=false` marca un mes distorsionado por algo excepcional
+/// (retroactivo, ajuste de haberes, liquidación de vacaciones) que no debe
+/// competir por ser la "mejor" remuneración.
+model RemuneracionMensual {
+  id                     String         @id @default(uuid())
+  empleadoId             String         @map("empleado_id")
+  periodo                DateTime       @map("periodo") @db.Date
+  conceptosRemunerativos Decimal        @map("conceptos_remunerativos") @db.Decimal(14, 2)
+  /// Remuneración devengada del mes para el SAC proporcional (arts. 121-123 LCT,
+  /// Ley 23.041) — a diferencia de `conceptosRemunerativos` (base del art. 245,
+  /// que usa el sueldo "normal" sin reducir por un mes parcial), acá sí se neta
+  /// por los días efectivamente trabajados en el mes (p.ej. descuentos por
+  /// ingreso/egreso) y se excluye el propio SAC proporcional del recibo (evita
+  /// circularidad). Null si no se pudo derivar (import previo a este campo, o
+  /// carga manual) — `AuditoriasService.baseSACDelCaso` cae al override manual
+  /// en ese caso. Ver docs/motor-calculo.md §2.1 y §2.4.
+  remuneracionDevengadaSac Decimal?     @map("remuneracion_devengada_sac") @db.Decimal(14, 2)
+  esNormalYHabitual      Boolean        @default(true) @map("es_normal_y_habitual")
+  detalle                Json?
+  fuente                 FuenteVariable @default(manual)
+  createdAt              DateTime       @default(now()) @map("created_at")
+
+  empleado Empleado @relation(fields: [empleadoId], references: [id])
+
+  @@unique([empleadoId, periodo])
+  @@map("remuneracion_mensual")
+}
+
+model Lote {
+  id            String     @id @default(uuid())
+  clienteId     String     @map("cliente_id")
+  nombre        String
+  motivo        MotivoLote
+  fechaCreacion DateTime   @default(now()) @map("fecha_creacion")
+
+  cliente  Cliente   @relation(fields: [clienteId], references: [id])
+  casos    Caso[]
+  informes Informe[]
+
+  @@map("lote")
+}
+
+model Caso {
+  id             String        @id @default(uuid())
+  empleadoId     String        @map("empleado_id")
+  loteId         String?       @map("lote_id")
+  tipoExtincion  TipoExtincion @map("tipo_extincion")
+  fechaExtincion DateTime      @map("fecha_extincion") @db.Date
+  estado         EstadoCaso    @default(borrador)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  empleado      Empleado       @relation(fields: [empleadoId], references: [id])
+  lote          Lote?          @relation(fields: [loteId], references: [id])
+  documentos    Documento[]
+  variables     VariableCaso[]
+  liquidaciones Liquidacion[]
+  auditorias    Auditoria[]
+  informes      Informe[]
+
+  @@map("caso")
+}
+
+model Documento {
+  id                  String              @id @default(uuid())
+  casoId              String              @map("caso_id")
+  tipo                TipoDocumento
+  archivoUrl          String              @map("archivo_url")
+  estadoProcesamiento EstadoProcesamiento @default(pendiente) @map("estado_procesamiento")
+  textoExtraido       String?             @map("texto_extraido")
+  metadata            Json?
+  uploadedAt          DateTime            @default(now()) @map("uploaded_at")
+
+  caso      Caso           @relation(fields: [casoId], references: [id])
+  variables VariableCaso[]
+
+  @@map("documento")
+}
+
+model VariableCaso {
+  id                String         @id @default(uuid())
+  casoId            String         @map("caso_id")
+  clave             String
+  valor             String
+  fuente            FuenteVariable
+  confianza         Decimal?       @db.Decimal(3, 2)
+  documentoOrigenId String?        @map("documento_origen_id")
+
+  caso            Caso       @relation(fields: [casoId], references: [id])
+  documentoOrigen Documento? @relation(fields: [documentoOrigenId], references: [id])
+
+  @@unique([casoId, clave])
+  @@map("variable_caso")
+}
+
+model Rubro {
+  id          String       @id @default(uuid())
+  codigo      String       @unique
+  nombre      String
+  baseLegal   String?      @map("base_legal")
+  activo      Boolean      @default(true)
+  /// true = establecido por la legislación laboral (LCT y leyes complementarias);
+  /// estos rubros no admiten desactivación ni monto manual por cliente (ver
+  /// ConfiguracionRubroClienteService.validarContraLegislacion).
+  esLegal     Boolean      @default(true) @map("es_legal")
+  tipoDefault TipoConcepto @default(fijo) @map("tipo_default")
+
+  liquidacionRubros      LiquidacionRubro[]
+  hallazgos              Hallazgo[]
+  configuracionesCliente ConfiguracionRubroCliente[]
+
+  @@map("rubro")
+}
+
+/// Configuración de un concepto (rubro) para un cliente puntual. Conceptos "fijos"
+/// legales (esLegal=true en Rubro, p.ej. indemnización por antigüedad): el cliente
+/// solo puede ajustar parámetros normativos permitidos (p.ej. el tope indemnizatorio
+/// de su convenio); nunca puede desactivarlos ni fijarles un monto manual — el motor
+/// de cálculo los sigue determinando y siempre respeta los pisos legales (art. 245
+/// LCT + doctrina "Vizzoti"). Conceptos "variables" (esLegal=false): ítems negociados
+/// propios del cliente (premios, bonos, gratificaciones), con un valor fijo u otros
+/// parámetros libres, sin piso legal.
+model ConfiguracionRubroCliente {
+  id         String       @id @default(uuid())
+  clienteId  String       @map("cliente_id")
+  rubroId    String       @map("rubro_id")
+  tipo       TipoConcepto
+  activo     Boolean      @default(true)
+  valorFijo  Decimal?     @map("valor_fijo") @db.Decimal(14, 2)
+  parametros Json?
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+  rubro   Rubro   @relation(fields: [rubroId], references: [id])
+
+  @@unique([clienteId, rubroId])
+  @@map("configuracion_rubro_cliente")
+}
+
+model Liquidacion {
+  id               String            @id @default(uuid())
+  casoId           String            @map("caso_id")
+  origen           OrigenLiquidacion
+  version          Int               @default(1)
+  fechaLiquidacion DateTime?         @map("fecha_liquidacion") @db.Date
+  estado           EstadoLiquidacion @default(vigente)
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  caso   Caso               @relation(fields: [casoId], references: [id])
+  rubros LiquidacionRubro[]
+
+  @@map("liquidacion")
+}
+
+model LiquidacionRubro {
+  id             String  @id @default(uuid())
+  liquidacionId  String  @map("liquidacion_id")
+  rubroId        String  @map("rubro_id")
+  monto          Decimal @db.Decimal(14, 2)
+  detalleCalculo Json?   @map("detalle_calculo")
+
+  liquidacion Liquidacion @relation(fields: [liquidacionId], references: [id])
+  rubro       Rubro       @relation(fields: [rubroId], references: [id])
+
+  @@map("liquidacion_rubro")
+}
+
+model Auditoria {
+  id        String          @id @default(uuid())
+  casoId    String          @map("caso_id")
+  usuarioId String?         @map("usuario_id")
+  fecha     DateTime        @default(now())
+  estado    EstadoAuditoria
+  resumen   String?
+
+  caso      Caso       @relation(fields: [casoId], references: [id])
+  usuario   Usuario?   @relation(fields: [usuarioId], references: [id])
+  hallazgos Hallazgo[]
+
+  @@map("auditoria")
+}
+
+model Hallazgo {
+  id                   String             @id @default(uuid())
+  auditoriaId          String             @map("auditoria_id")
+  rubroId              String             @map("rubro_id")
+  montoDeclarado       Decimal            @map("monto_declarado") @db.Decimal(14, 2)
+  montoCalculado       Decimal            @map("monto_calculado") @db.Decimal(14, 2)
+  porcentajeDiferencia Decimal?           @map("porcentaje_diferencia") @db.Decimal(6, 2)
+  severidad            SeveridadHallazgo?
+  estado               EstadoHallazgo     @default(pendiente)
+  comentario           String?
+
+  auditoria Auditoria @relation(fields: [auditoriaId], references: [id])
+  rubro     Rubro     @relation(fields: [rubroId], references: [id])
+
+  @@map("hallazgo")
+}
+
+model Informe {
+  id              String   @id @default(uuid())
+  casoId          String?  @map("caso_id")
+  loteId          String?  @map("lote_id")
+  formato         String   @default("pdf")
+  archivoUrl      String   @map("archivo_url")
+  fechaGeneracion DateTime @default(now()) @map("fecha_generacion")
+
+  caso Caso? @relation(fields: [casoId], references: [id])
+  lote Lote? @relation(fields: [loteId], references: [id])
+
+  @@map("informe")
+}

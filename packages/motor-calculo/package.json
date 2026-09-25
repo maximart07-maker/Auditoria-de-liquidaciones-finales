@@ -1,0 +1,18 @@
+{
+  "name": "@audit/motor-calculo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Motor de cálculo puro para auditoría de liquidaciones finales (LCT y leyes complementarias).",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
