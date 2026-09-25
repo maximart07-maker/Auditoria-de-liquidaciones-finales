@@ -19,6 +19,10 @@ export interface FilaNominaImportada {
   cuil: string;
   nombre: string;
   periodo: Date;
+  /** Mes de devengamiento al que se imputa el concepto (primer día del mes), si
+   * el archivo trae la columna de imputación y la celda no está vacía — p.ej. un
+   * retroactivo liquidado en `periodo` pero devengado en un mes anterior. */
+  periodoImputacion: Date | null;
   fechaIngreso: Date;
   categoria: string | null;
   proceso: string;
@@ -58,6 +62,52 @@ function textoDeCelda(valor: ExcelJS.CellValue): string {
   return String(valor);
 }
 
+/** Las celdas con fórmula (p.ej. una imputación `=C2` que copia el Período)
+ * llegan como `{ formula, result }` o `{ sharedFormula, result }`: se usa el
+ * resultado ya calculado que guardó Excel. */
+function resultadoDeCelda(valor: ExcelJS.CellValue): ExcelJS.CellValue {
+  if (valor && typeof valor === 'object' && !(valor instanceof Date) && 'result' in valor) {
+    return (valor as ExcelJS.CellFormulaValue).result as ExcelJS.CellValue;
+  }
+  return valor;
+}
+
+function sinAcentos(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{M}/gu, '');
+}
+
+function mesValido(anio: number, mes: number): Date | null {
+  if (mes < 1 || mes > 12 || anio < 1900 || anio > 2999) return null;
+  return new Date(Date.UTC(anio, mes - 1, 1));
+}
+
+/** La imputación puede venir como fecha, como número de serie de Excel, como
+ * número AAAAMM (p.ej. 202605) o como texto (MM/AAAA, AAAA-MM, AAAAMM o
+ * DD/MM/AAAA, según el export del sistema de nómina). Celda vacía = sin
+ * imputación (el concepto se devenga en el `Período` de la fila). */
+function aPeriodoImputacion(valor: ExcelJS.CellValue, fila: number): Date | null {
+  if (valor === null || valor === undefined) return null;
+  if (valor instanceof Date) return aPrimerDiaDelMes(valor);
+  if (typeof valor === 'number' && Number.isInteger(valor) && valor >= 190001 && valor <= 299912) {
+    const periodo = mesValido(Math.floor(valor / 100), valor % 100);
+    if (periodo) return periodo;
+  }
+  if (typeof valor === 'number') return aPrimerDiaDelMes(aFecha(valor, 'Imputación', fila));
+
+  const texto = textoDeCelda(valor).trim();
+  if (!texto) return null;
+  let m = /^(\d{1,2})[/-](\d{4})$/.exec(texto);
+  let periodo = m ? mesValido(Number(m[2]), Number(m[1])) : null;
+  if (!periodo && (m = /^(\d{4})[/-]?(\d{1,2})$/.exec(texto))) periodo = mesValido(Number(m[1]), Number(m[2]));
+  if (!periodo && (m = /^\d{1,2}[/-](\d{1,2})[/-](\d{4})$/.exec(texto))) periodo = mesValido(Number(m[2]), Number(m[1]));
+  if (!periodo) {
+    throw new BadRequestException(
+      `Fila ${fila}: la columna "Imputación" no tiene un mes reconocible ("${texto}") — se espera MM/AAAA, AAAA-MM o una fecha`,
+    );
+  }
+  return periodo;
+}
+
 /**
  * Parsea el archivo de nómina (xlsx) con la estructura de "Remu + NR": un
  * renglón por concepto liquidado, por empleado y período — ver
@@ -92,27 +142,34 @@ export async function parsearNomina(buffer: Buffer): Promise<FilaNominaImportada
   }
 
   const columna = (nombre: (typeof COLUMNAS_REQUERIDAS)[number]) => columnaPorNombre.get(nombre)!;
+  // Opcional: los exports que no la traen se siguen importando como antes.
+  const columnaImputacion = [...columnaPorNombre].find(([nombre]) =>
+    sinAcentos(nombre).toLowerCase().includes('imputacion'),
+  )?.[1];
   const filas: FilaNominaImportada[] = [];
 
   hoja.eachRow({ includeEmpty: false }, (row, numeroFila) => {
     if (numeroFila === 1) return;
 
-    const doc = textoDeCelda(row.getCell(columna('Doc')).value).trim();
-    const periodoValor = row.getCell(columna('Período')).value;
-    const montoValor = row.getCell(columna('Monto')).value;
+    const valor = (numeroColumna: number) => resultadoDeCelda(row.getCell(numeroColumna).value);
+    const doc = textoDeCelda(valor(columna('Doc'))).trim();
+    const periodoValor = valor(columna('Período'));
+    const montoValor = valor(columna('Monto'));
     if (!doc || !periodoValor || montoValor === null || montoValor === undefined) return;
 
     filas.push({
       cuil: normalizarCuil(doc),
-      nombre: textoDeCelda(row.getCell(columna('Apellido y Nombre')).value).trim(),
+      nombre: textoDeCelda(valor(columna('Apellido y Nombre'))).trim(),
       periodo: aPrimerDiaDelMes(aFecha(periodoValor, 'Período', numeroFila)),
-      fechaIngreso: aFecha(row.getCell(columna('Ingreso')).value, 'Ingreso', numeroFila),
-      categoria: textoDeCelda(row.getCell(columna('Categoría')).value).trim() || null,
-      proceso: textoDeCelda(row.getCell(columna('Proceso')).value),
-      codigo: textoDeCelda(row.getCell(columna('Código')).value).trim(),
-      concepto: textoDeCelda(row.getCell(columna('Concepto')).value),
+      periodoImputacion:
+        columnaImputacion === undefined ? null : aPeriodoImputacion(valor(columnaImputacion), numeroFila),
+      fechaIngreso: aFecha(valor(columna('Ingreso')), 'Ingreso', numeroFila),
+      categoria: textoDeCelda(valor(columna('Categoría'))).trim() || null,
+      proceso: textoDeCelda(valor(columna('Proceso'))),
+      codigo: textoDeCelda(valor(columna('Código'))).trim(),
+      concepto: textoDeCelda(valor(columna('Concepto'))),
       monto: Number(montoValor),
-      tipo: textoDeCelda(row.getCell(columna('TIPO')).value).trim().toUpperCase(),
+      tipo: textoDeCelda(valor(columna('TIPO'))).trim().toUpperCase(),
     });
   });
 

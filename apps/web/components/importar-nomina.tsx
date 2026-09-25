@@ -41,6 +41,11 @@ export function ImportarNomina({ clienteId }: { clienteId: string }) {
         cargar el histórico de remuneraciones (art. 245 LCT); si el CUIL no existe todavía como empleado de este
         cliente, se da de alta automáticamente.
       </p>
+      <p className="text-xs text-slate-500">
+        Opcional: una columna <code className="font-mono">Imputación</code> con el mes de devengamiento (MM/AAAA,
+        AAAA-MM o fecha). Si la trae, cada concepto suma al mes al que se imputa y no al mes en que se pagó; así un
+        retroactivo integra la remuneración del mes que corresponde.
+      </p>
 
       <form onSubmit={importar} className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-slate-300 p-4">
         <div>
@@ -96,6 +101,16 @@ export function ImportarNomina({ clienteId }: { clienteId: string }) {
               <ul className="list-inside list-disc text-xs text-red-600">
                 {resultado.errores.map((e, i) => (
                   <li key={i}>{e}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {resultado.advertencias.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <p className="text-xs font-medium text-amber-700">{resultado.advertencias.length} advertencia(s):</p>
+              <ul className="list-inside list-disc text-xs text-amber-700">
+                {resultado.advertencias.map((a, i) => (
+                  <li key={i}>{a}</li>
                 ))}
               </ul>
             </div>

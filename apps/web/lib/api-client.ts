@@ -133,6 +133,7 @@ export interface ResumenImportacion {
   empleadosActualizados: number;
   mesesImportados: number;
   errores: string[];
+  advertencias: string[];
 }
 
 export interface Rubro {

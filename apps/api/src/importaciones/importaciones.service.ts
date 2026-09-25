@@ -13,10 +13,14 @@ interface MesAgregado {
    * ImportacionesService.remuneracionDevengadaSacDeRecibo, misma idea acá pero
    * fila por fila de nómina en vez de conceptos de un recibo. */
   remuneracionDevengadaSac: number;
-  detalleConceptos: { concepto: string; monto: number; tipo: string }[];
-  /** true si algún renglón del mes viene de un proceso de "ajuste" (retroactivo) —
-   * ver ResumenImportacion.esNormalYHabitual más abajo. */
+  /** `liquidadoEn` = mes de pago (`Período`) cuando el renglón se imputó a otro mes. */
+  detalleConceptos: { concepto: string; monto: number; tipo: string; liquidadoEn?: string }[];
+  /** true si algún renglón del mes viene de un proceso de "ajuste" (retroactivo)
+   * sin imputación a otro mes — ver agruparPorEmpleadoYPeriodo. */
   tieneAjuste: boolean;
+  /** false si el mes solo aparece en el archivo por renglones imputados desde
+   * otros meses de pago (su propia liquidación no está en el archivo). */
+  tieneRenglonesPropios: boolean;
 }
 
 interface DatosEmpleado {
@@ -33,6 +37,10 @@ export interface ResumenImportacion {
   empleadosActualizados: number;
   mesesImportados: number;
   errores: string[];
+  /** Ajustes imputados a meses cuya liquidación no está en el archivo: no se
+   * graban (pisarían el mes completo, si ya estaba importado, con solo el
+   * ajuste) — hay que reimportar incluyendo ese mes. */
+  advertencias: string[];
 }
 
 export interface ResumenImportacionRecibo {
@@ -164,6 +172,7 @@ export class ImportacionesService {
     let empleadosActualizados = 0;
     let mesesImportados = 0;
     const errores: string[] = [];
+    const advertencias: string[] = [];
 
     for (const [cuil, datos] of porCuil) {
       try {
@@ -173,6 +182,14 @@ export class ImportacionesService {
         });
 
         for (const [periodoIso, agregado] of datos.meses) {
+          if (!agregado.tieneRenglonesPropios) {
+            const liquidadoEn = [...new Set(agregado.detalleConceptos.map((c) => c.liquidadoEn))].join(', ');
+            advertencias.push(
+              `CUIL ${cuil}: hay ajustes imputados a ${periodoIso.slice(0, 7)} (liquidados en ${liquidadoEn}) ` +
+                'pero la liquidación de ese mes no está en el archivo — no se sumaron; reimportá incluyendo ese mes.',
+            );
+            continue;
+          }
           await this.prisma.remuneracionMensual.upsert({
             where: { empleadoId_periodo: { empleadoId, periodo: new Date(periodoIso) } },
             create: {
@@ -206,6 +223,7 @@ export class ImportacionesService {
       empleadosActualizados,
       mesesImportados,
       errores,
+      advertencias,
     };
   }
 
@@ -367,11 +385,16 @@ export class ImportacionesService {
    * de `baseIndemnizacion` (son preguntas legales distintas, ver
    * `remuneracionDevengadaSacDeRecibo`) y excluye las filas cuyo concepto
    * mapea a un rubro de liquidación final (`rubroParaConcepto`, p.ej. el
-   * propio SAC) para evitar circularidad. Marca `tieneAjuste=true` si algún
-   * renglón del mes viene de un proceso de liquidación cuyo nombre contiene
-   * "ajuste" (heurística: un ajuste/retroactivo suele distorsionar el mes y
-   * no debería competir por ser la "mejor" remuneración — el auditor puede
-   * revisar y corregir el flag a mano después).
+   * propio SAC) para evitar circularidad.
+   *
+   * Cada renglón se suma al mes de su imputación (mes de devengamiento) si la
+   * trae, no al `Período` en que se pagó: un retroactivo pagado en junio pero
+   * imputado a abril integra la remuneración devengada de abril — tanto para
+   * la MRMNH (art. 245: "devengada") como para la base del SAC (arts.
+   * 121-122) —, y deja de inflar junio. Solo si un renglón de un proceso de
+   * "ajuste" no trae imputación se marca el mes `tieneAjuste=true` (no puede
+   * competir por la "mejor" remuneración, porque no se sabe a qué mes
+   * corresponde el retroactivo; el auditor puede corregir el flag a mano).
    */
   private agruparPorEmpleadoYPeriodo(
     filas: FilaNominaImportada[],
@@ -386,7 +409,9 @@ export class ImportacionesService {
         porCuil.set(fila.cuil, datosEmpleado);
       }
 
-      const periodoIso = fila.periodo.toISOString().slice(0, 10);
+      const periodoPagoIso = fila.periodo.toISOString().slice(0, 10);
+      const periodoIso = (fila.periodoImputacion ?? fila.periodo).toISOString().slice(0, 10);
+      const imputadoAOtroMes = periodoIso !== periodoPagoIso;
       let agregado = datosEmpleado.meses.get(periodoIso);
       if (!agregado) {
         agregado = {
@@ -395,9 +420,11 @@ export class ImportacionesService {
           remuneracionDevengadaSac: 0,
           detalleConceptos: [],
           tieneAjuste: false,
+          tieneRenglonesPropios: false,
         };
         datosEmpleado.meses.set(periodoIso, agregado);
       }
+      if (!imputadoAOtroMes) agregado.tieneRenglonesPropios = true;
 
       const infoConcepto = catalogo.get(normalizarCodigoConcepto(fila.codigo));
       const cuentaParaBase = infoConcepto?.baseIndemnizacion ?? fila.tipo === 'REMU';
@@ -407,8 +434,13 @@ export class ImportacionesService {
       const esRemunerativoParaSac = infoConcepto ? infoConcepto.tipo === 'remunerativo' : fila.tipo === 'REMU';
       if (esRemunerativoParaSac && !rubroParaConcepto(fila.concepto)) agregado.remuneracionDevengadaSac += fila.monto;
 
-      agregado.detalleConceptos.push({ concepto: fila.concepto, monto: fila.monto, tipo: fila.tipo });
-      if (/ajuste/i.test(fila.proceso)) agregado.tieneAjuste = true;
+      agregado.detalleConceptos.push({
+        concepto: fila.concepto,
+        monto: fila.monto,
+        tipo: fila.tipo,
+        ...(imputadoAOtroMes ? { liquidadoEn: periodoPagoIso.slice(0, 7) } : {}),
+      });
+      if (/ajuste/i.test(fila.proceso) && !fila.periodoImputacion) agregado.tieneAjuste = true;
     }
 
     return porCuil;
