@@ -155,5 +155,13 @@ export function rubroParaConcepto(nombreConcepto: string): string | null {
     return esAnterior ? 'VAC_NO_GOZADAS_ANTERIORES' : 'VAC_NO_GOZADAS';
   }
   if (esSac && texto.includes('proporcional')) return 'SAC_PROP';
+  // El motor calcula PREAVISO e INTEGRACION_MES con su SAC incluido (arts.
+  // 232/233 LCT), así que el renglón "SAC sobre ..." suma al mismo rubro.
+  if (texto.includes('preaviso')) return 'PREAVISO';
+  if (/\binteg/.test(texto)) return 'INTEGRACION_MES';
+  // Exige "indemn": "Antigüedad" solo es el adicional mensual por antigüedad.
+  // La indemnización por fallecimiento (art. 248) no la calcula el motor, así
+  // que queda sin mapear en vez de compararse contra el art. 245.
+  if (texto.includes('indemn') && texto.includes('antig')) return 'IND_ANTIGUEDAD';
   return null;
 }

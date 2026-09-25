@@ -306,8 +306,12 @@ export class ImportacionesService {
     }
 
     if (rubrosDeclarados.length > 0) {
+      // Varios conceptos pueden caer en el mismo rubro (p.ej. "Preaviso" y "SAC
+      // sobre Preaviso" → PREAVISO): se declaran sumados, un renglón por rubro.
+      const montoPorRubro = new Map<string, number>();
+      for (const r of rubrosDeclarados) montoPorRubro.set(r.rubroCodigo, (montoPorRubro.get(r.rubroCodigo) ?? 0) + r.monto);
       const rubrosDb = await this.prisma.rubro.findMany({
-        where: { codigo: { in: rubrosDeclarados.map((r) => r.rubroCodigo) } },
+        where: { codigo: { in: [...montoPorRubro.keys()] } },
       });
       const rubroIdPorCodigo = new Map(rubrosDb.map((r) => [r.codigo, r.id]));
       await this.prisma.liquidacion.create({
@@ -315,9 +319,9 @@ export class ImportacionesService {
           casoId: caso.id,
           origen: 'empresa',
           rubros: {
-            create: rubrosDeclarados
-              .filter((r) => rubroIdPorCodigo.has(r.rubroCodigo))
-              .map((r) => ({ rubroId: rubroIdPorCodigo.get(r.rubroCodigo)!, monto: r.monto })),
+            create: [...montoPorRubro]
+              .filter(([codigo]) => rubroIdPorCodigo.has(codigo))
+              .map(([codigo, monto]) => ({ rubroId: rubroIdPorCodigo.get(codigo)!, monto })),
           },
         },
       });
