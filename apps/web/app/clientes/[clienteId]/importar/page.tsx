@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { BotonVolver } from '@/components/ui/boton-volver';
 import { ImportarConceptos } from '@/components/importar-conceptos';
 import { ImportarNomina } from '@/components/importar-nomina';
 import { ImportarRecibo } from '@/components/importar-recibo';
@@ -9,7 +10,8 @@ export default async function ImportarNominaPage({ params }: { params: { cliente
 
   return (
     <div className="space-y-10">
-      <div>
+      <div className="space-y-3">
+        <BotonVolver href={`/clientes/${cliente.id}`}>Volver a {cliente.razonSocial}</BotonVolver>
         <p className="text-sm text-slate-500">
           <Link href="/" className="hover:underline">
             Clientes

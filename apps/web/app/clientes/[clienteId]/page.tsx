@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { EstadoBadge } from '@/components/ui/estado-badge';
 import { EmpleadosYCasos } from '@/components/empleados-y-casos';
+import { EliminarCasoBoton } from '@/components/eliminar-caso-boton';
+import { BotonVolver } from '@/components/ui/boton-volver';
+import { esCasoEliminable } from '@/lib/casos';
 
 export default async function PanelClientePage({ params }: { params: { clienteId: string } }) {
   const [cliente, casos, empleados] = await Promise.all([
@@ -12,7 +15,8 @@ export default async function PanelClientePage({ params }: { params: { clienteId
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="space-y-3">
+        <BotonVolver href="/">Volver a clientes</BotonVolver>
         <p className="text-sm text-slate-500">
           <Link href="/" className="hover:underline">
             Clientes
@@ -48,6 +52,7 @@ export default async function PanelClientePage({ params }: { params: { clienteId
                 <th className="px-4 py-2 font-medium">Tipo de extinción</th>
                 <th className="px-4 py-2 font-medium">Fecha</th>
                 <th className="px-4 py-2 font-medium">Estado</th>
+                <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -63,11 +68,16 @@ export default async function PanelClientePage({ params }: { params: { clienteId
                   <td className="px-4 py-2">
                     <EstadoBadge estado={caso.estado} />
                   </td>
+                  <td className="px-4 py-2 text-right">
+                    {esCasoEliminable(caso.estado) && (
+                      <EliminarCasoBoton casoId={caso.id} nombreEmpleado={caso.empleado.nombre} compacto />
+                    )}
+                  </td>
                 </tr>
               ))}
               {casos.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
                     Sin casos individuales todavía.
                   </td>
                 </tr>

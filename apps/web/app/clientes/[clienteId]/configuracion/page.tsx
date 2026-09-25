@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { BotonVolver } from '@/components/ui/boton-volver';
 import { ConfiguracionRubros } from '@/components/configuracion-rubros';
 
 export default async function ConfiguracionClientePage({ params }: { params: { clienteId: string } }) {
@@ -10,7 +11,8 @@ export default async function ConfiguracionClientePage({ params }: { params: { c
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-3">
+        <BotonVolver href={`/clientes/${cliente.id}`}>Volver a {cliente.razonSocial}</BotonVolver>
         <p className="text-sm text-slate-500">
           <Link href="/" className="hover:underline">
             Clientes

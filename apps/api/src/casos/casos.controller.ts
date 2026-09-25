@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { CasosService } from './casos.service';
 import { CreateCasoDto } from './dto/create-caso.dto';
 import { SetVariableDto } from './dto/set-variable.dto';
@@ -20,6 +20,12 @@ export class CasosController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.casosService.findOne(id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id') id: string) {
+    return this.casosService.remove(id);
   }
 
   @Put(':id/variables')

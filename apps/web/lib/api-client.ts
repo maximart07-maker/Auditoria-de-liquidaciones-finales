@@ -40,6 +40,7 @@ export interface UpsertRemuneracionMensual {
 
 export interface Empleado {
   id: string;
+  clienteId: string;
   nombre: string;
   cuil: string;
   fechaIngreso: string;
@@ -209,6 +210,7 @@ export const apiClient = {
   crearCaso: (dto: CrearCasoInput) => request<Caso>('/casos', { method: 'POST', body: JSON.stringify(dto) }),
   listarLotes: (clienteId: string) => request<unknown[]>(`/lotes?clienteId=${clienteId}`),
   obtenerCaso: (id: string) => request<CasoDetalle>(`/casos/${id}`),
+  eliminarCaso: (id: string) => request<void>(`/casos/${id}`, { method: 'DELETE' }),
   guardarVariable: (casoId: string, dto: SetVariableInput) =>
     request<VariableCaso>(`/casos/${casoId}/variables`, { method: 'PUT', body: JSON.stringify(dto) }),
   guardarLiquidacionEmpresa: (casoId: string, rubros: RubroMontoInput[]) =>
