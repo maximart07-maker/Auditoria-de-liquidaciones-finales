@@ -111,13 +111,30 @@ export function ImportarRecibo({ clienteId }: { clienteId: string }) {
             </Link>
           </p>
 
-          <p>
-            Base remunerativa del período ({resultado.remuneracionMensual.periodo}): $
-            {resultado.remuneracionMensual.conceptosRemunerativos.toLocaleString('es-AR')} —{' '}
-            {resultado.baseCalculadaConCatalogo
-              ? 'calculada con el catálogo de conceptos del cliente (solo los que entran en la base del art. 245)'
-              : 'el cliente no tiene catálogo de conceptos cargado: se usó el total "Remunerativo" del recibo, que puede incluir conceptos como el SAC que no entran en esa base'}
-          </p>
+          {resultado.remuneracionMensual.registrada === 'recibo' && (
+            <p>
+              Base remunerativa del período ({resultado.remuneracionMensual.periodo}): $
+              {resultado.remuneracionMensual.conceptosRemunerativos.toLocaleString('es-AR')} —{' '}
+              {resultado.baseCalculadaConCatalogo
+                ? 'calculada con el catálogo de conceptos del cliente (solo los que entran en la base del art. 245)'
+                : 'el cliente no tiene catálogo de conceptos cargado: se usó el total "Remunerativo" del recibo, que puede incluir conceptos como el SAC que no entran en esa base'}
+            </p>
+          )}
+          {resultado.remuneracionMensual.registrada === 'ya_existia' && (
+            <p>
+              Base remunerativa del período ({resultado.remuneracionMensual.periodo}): se mantiene la que ya estaba
+              cargada (nómina o carga manual), $
+              {resultado.remuneracionMensual.conceptosRemunerativos.toLocaleString('es-AR')}. El recibo es un solo
+              proceso de liquidación y no reemplaza el mes completo.
+            </p>
+          )}
+          {resultado.remuneracionMensual.registrada === 'sin_base' && (
+            <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+              El recibo no trae conceptos de sueldo para {resultado.remuneracionMensual.periodo} (probablemente el mes
+              se liquidó en otro proceso), así que no se cargó ese mes. Importá la nómina del cliente antes de auditar:
+              la indemnización y el preaviso se calculan sobre esas remuneraciones.
+            </p>
+          )}
 
           {resultado.diasVacacionesPendientesPeriodosAnteriores !== null && (
             <p className="text-xs text-slate-500">

@@ -48,7 +48,17 @@ export interface ResumenImportacionRecibo {
   cuitDelRecibo: string | null;
   empleado: { id: string; nombre: string; cuil: string; creado: boolean };
   casoId: string;
-  remuneracionMensual: { periodo: string; conceptosRemunerativos: number; esNormalYHabitual: boolean };
+  /** `registrada`: 'recibo' si el mes se cargó con este recibo; 'ya_existia'
+   * si ya había un mes cargado (nómina o manual) y se mantuvo — sus valores son
+   * los que se informan; 'sin_base' si el recibo no trae ningún concepto de
+   * la base (p.ej. el sueldo del mes se liquidó en otro proceso) y no había
+   * mes cargado, así que no se creó. */
+  remuneracionMensual: {
+    periodo: string;
+    conceptosRemunerativos: number;
+    esNormalYHabitual: boolean;
+    registrada: 'recibo' | 'ya_existia' | 'sin_base';
+  };
   rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[];
   /** Conceptos del recibo que no matchearon ningún rubro del motor (informativo). */
   conceptosSinMapear: { concepto: string; monto: number }[];
@@ -234,8 +244,8 @@ export class ImportacionesService {
    * el auditor (el recibo no los trae — no son datos de nómina), y carga la
    * `Liquidacion` de origen "empresa" con los rubros que el recibo sí trae
    * (SAC proporcional, vacaciones no gozadas actuales/anteriores y su SAC).
-   * También registra la `RemuneracionMensual` del período del recibo. No es
-   * idempotente: reimportar el mismo recibo crea un caso nuevo cada vez.
+   * También registra la `RemuneracionMensual` del período del recibo, solo si
+   * ese mes no estaba cargado y el recibo trae base. No es idempotente: reimportar el mismo recibo crea un caso nuevo cada vez.
    */
   async importarRecibo(clienteId: string, buffer: Buffer, dto: ImportarReciboDto): Promise<ResumenImportacionRecibo> {
     await this.asegurarCliente(clienteId);
@@ -277,25 +287,34 @@ export class ImportacionesService {
       },
     });
 
-    await this.prisma.remuneracionMensual.upsert({
+    // El recibo es un solo proceso de liquidación; la nómina (o una carga
+    // manual) trae el mes completo, así que si ese mes ya existe no se pisa: un
+    // recibo de despido que no incluye el sueldo del mes (liquidado aparte)
+    // dejaba la base en $0 y con ella la indemnización y el preaviso. Tampoco
+    // se crea un mes con base $0: mejor que la auditoría pida la nómina a que
+    // calcule sobre cero.
+    const mesExistente = await this.prisma.remuneracionMensual.findUnique({
       where: { empleadoId_periodo: { empleadoId, periodo: recibo.periodo } },
-      create: {
-        empleadoId,
-        periodo: recibo.periodo,
-        conceptosRemunerativos,
-        remuneracionDevengadaSac,
-        esNormalYHabitual,
-        detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
-        fuente: 'importado',
-      },
-      update: {
-        conceptosRemunerativos,
-        remuneracionDevengadaSac,
-        esNormalYHabitual,
-        detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
-        fuente: 'importado',
-      },
     });
+    let registrada: ResumenImportacionRecibo['remuneracionMensual']['registrada'];
+    if (mesExistente) {
+      registrada = 'ya_existia';
+    } else if (conceptosRemunerativos === 0) {
+      registrada = 'sin_base';
+    } else {
+      registrada = 'recibo';
+      await this.prisma.remuneracionMensual.create({
+        data: {
+          empleadoId,
+          periodo: recibo.periodo,
+          conceptosRemunerativos,
+          remuneracionDevengadaSac,
+          esNormalYHabitual,
+          detalle: { conceptos: recibo.conceptos } as unknown as Prisma.InputJsonValue,
+          fuente: 'importado',
+        },
+      });
+    }
 
     const rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[] = [];
     const conceptosSinMapear: { concepto: string; monto: number }[] = [];
@@ -365,8 +384,9 @@ export class ImportacionesService {
       casoId: caso.id,
       remuneracionMensual: {
         periodo: recibo.periodo.toISOString().slice(0, 10),
-        conceptosRemunerativos,
-        esNormalYHabitual,
+        conceptosRemunerativos: mesExistente ? Number(mesExistente.conceptosRemunerativos) : conceptosRemunerativos,
+        esNormalYHabitual: mesExistente ? mesExistente.esNormalYHabitual : esNormalYHabitual,
+        registrada,
       },
       rubrosDeclarados,
       conceptosSinMapear,

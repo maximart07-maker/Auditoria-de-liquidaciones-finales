@@ -183,7 +183,12 @@ export interface ResumenImportacionRecibo {
   cuitDelRecibo: string | null;
   empleado: { id: string; nombre: string; cuil: string; creado: boolean };
   casoId: string;
-  remuneracionMensual: { periodo: string; conceptosRemunerativos: number; esNormalYHabitual: boolean };
+  remuneracionMensual: {
+    periodo: string;
+    conceptosRemunerativos: number;
+    esNormalYHabitual: boolean;
+    registrada: 'recibo' | 'ya_existia' | 'sin_base';
+  };
   rubrosDeclarados: { rubroCodigo: string; concepto: string; monto: number }[];
   conceptosSinMapear: { concepto: string; monto: number }[];
   rubrosLegalesNoEncontradosEnElRecibo: string[];
