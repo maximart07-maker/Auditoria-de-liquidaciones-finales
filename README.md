@@ -58,7 +58,7 @@ npm run prisma:seed --workspace apps/api
 npm run dev       # web: http://localhost:3000 · api: http://localhost:3001
 ```
 
-En Windows, después de la primera instalación alcanza con hacer doble clic en `iniciar.cmd`: levanta la base de datos con Docker y arranca backend y frontend en la misma ventana.
+En Windows, después de la primera instalación alcanza con hacer doble clic en `iniciar.cmd`: levanta la base de datos con Docker y arranca backend y frontend en la misma ventana. Para traer cambios nuevos, doble clic en `actualizar.cmd` (baja los cambios, instala dependencias, compila el motor y aplica migraciones).
 
 Si después modificás algo dentro de `packages/motor-calculo`, hay que repetir el paso 2 (`npm run build --workspace packages/motor-calculo`) y reiniciar `npm run dev:api` para que el backend vea el cambio — el watch de `nest start` no recompila ese paquete externo.
 

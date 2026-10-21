@@ -13,5 +13,5 @@ echo.
 echo Iniciando la app. Abri http://localhost:3000 cuando aparezca "Ready".
 echo Para detenerla, cerra esta ventana o apreta Ctrl+C.
 echo.
-npm run dev
+call npm run dev
 pause
