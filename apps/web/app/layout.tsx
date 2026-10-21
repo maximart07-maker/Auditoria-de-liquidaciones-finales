@@ -3,8 +3,8 @@ import Link from 'next/link';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Auditoría de Liquidaciones Finales',
-  description: 'Control, comparación y auditoría de liquidaciones finales de sueldos.',
+  title: 'Auditoría Control de Nómina',
+  description: 'Control y auditoría de nómina y liquidaciones de sueldos bajo legislación argentina.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="bg-gradient-to-r from-crowe-indigo via-crowe-indigo to-crowe-ciruela text-white">
           <div className="px-6 py-3">
             <Link href="/" className="font-semibold hover:text-crowe-ambar-claro">
-              Auditoría de Liquidaciones Finales
+              Auditoría Control de Nómina
             </Link>
           </div>
           <div className="h-1 bg-crowe-franja" aria-hidden="true" />

@@ -1,4 +1,4 @@
-# Auditoría de Liquidaciones Finales
+# Auditoría Control de Nómina
 
 Sistema para el control, comparación y auditoría de liquidaciones finales de sueldos (despidos, renuncias, mutuos acuerdos, etc.) para múltiples clientes, bajo legislación laboral argentina.
 
