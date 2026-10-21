@@ -1,7 +1,7 @@
 const ESTILOS: Record<string, string> = {
   borrador: 'bg-slate-100 text-slate-600',
   en_revision: 'bg-amber-100 text-amber-700',
-  auditado: 'bg-blue-100 text-blue-700',
+  auditado: 'bg-crowe-indigo/10 text-crowe-indigo',
   cerrado: 'bg-emerald-100 text-emerald-700',
 };
 

@@ -11,10 +11,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
-        <header className="border-b border-slate-200 bg-white px-6 py-3">
-          <Link href="/" className="font-semibold hover:underline">
-            Auditoría de Liquidaciones Finales
-          </Link>
+        <header className="bg-gradient-to-r from-crowe-indigo via-crowe-indigo to-crowe-ciruela text-white">
+          <div className="px-6 py-3">
+            <Link href="/" className="font-semibold hover:text-crowe-ambar-claro">
+              Auditoría de Liquidaciones Finales
+            </Link>
+          </div>
+          <div className="h-1 bg-crowe-franja" aria-hidden="true" />
         </header>
         <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
       </body>

@@ -51,7 +51,7 @@ export function CasoTabs({ caso }: { caso: CasoDetalle }) {
             onClick={() => setTabActiva(tab)}
             className={`px-3 py-2 text-sm font-medium ${
               tabActiva === tab
-                ? 'border-b-2 border-slate-900 text-slate-900'
+                ? 'border-b-2 border-crowe-magenta text-crowe-indigo'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -106,7 +106,7 @@ export function CasoTabs({ caso }: { caso: CasoDetalle }) {
             <button
               onClick={ejecutarAuditoria}
               disabled={ejecutando}
-              className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="btn-primario"
             >
               {ejecutando ? 'Ejecutando…' : 'Ejecutar auditoría'}
             </button>

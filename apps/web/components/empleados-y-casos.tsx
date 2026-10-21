@@ -131,7 +131,7 @@ export function EmpleadosYCasos({ clienteId, inicial }: { clienteId: string; ini
             <button
               type="submit"
               disabled={guardandoEmpleado}
-              className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="btn-primario"
             >
               {guardandoEmpleado ? 'Creando…' : 'Crear empleado'}
             </button>
@@ -229,7 +229,7 @@ export function EmpleadosYCasos({ clienteId, inicial }: { clienteId: string; ini
             <button
               type="submit"
               disabled={guardandoCaso}
-              className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="btn-primario"
             >
               {guardandoCaso ? 'Creando…' : 'Crear caso'}
             </button>
