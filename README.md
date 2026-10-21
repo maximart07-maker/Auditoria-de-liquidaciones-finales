@@ -54,10 +54,11 @@ cp .env.example apps/web/.env.local   # solo necesita NEXT_PUBLIC_API_URL
 npm run prisma:migrate --workspace apps/api
 npm run prisma:seed --workspace apps/api
 
-# 6. Levantar backend y frontend (en dos terminales)
-npm run dev:api   # http://localhost:3001
-npm run dev:web   # http://localhost:3000
+# 6. Levantar backend y frontend juntos (una sola terminal)
+npm run dev       # web: http://localhost:3000 · api: http://localhost:3001
 ```
+
+En Windows, después de la primera instalación alcanza con hacer doble clic en `iniciar.cmd`: levanta la base de datos con Docker y arranca backend y frontend en la misma ventana.
 
 Si después modificás algo dentro de `packages/motor-calculo`, hay que repetir el paso 2 (`npm run build --workspace packages/motor-calculo`) y reiniciar `npm run dev:api` para que el backend vea el cambio — el watch de `nest start` no recompila ese paquete externo.
 
