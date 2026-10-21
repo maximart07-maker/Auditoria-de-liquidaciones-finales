@@ -6,6 +6,7 @@ Permite gestionar uno o varios clientes en simultáneo, desde una liquidación p
 
 ## Documentación
 
+- [`docs/arquitectura-saas-auditoria-nomina.md`](docs/arquitectura-saas-auditoria-nomina.md) — Arquitectura objetivo de la plataforma SaaS de Auditoría de Nómina (ingesta LSD/F931/ERPs, Mapping Desk, motor de reglas CCT/SS/Ganancias, modelo PostgreSQL, seguridad y Ley 25.326). El MVP de liquidaciones finales pasa a ser su módulo "Egresos".
 - [`docs/arquitectura.md`](docs/arquitectura.md) — Propuesta de arquitectura general y stack tecnológico.
 - [`docs/modelo-datos.md`](docs/modelo-datos.md) — Modelo de datos (entidades, relaciones, DDL).
 - [`docs/flujo-ux.md`](docs/flujo-ux.md) — Flujo de usuario (UX/UI), de la carga de documentos al informe de auditoría.
