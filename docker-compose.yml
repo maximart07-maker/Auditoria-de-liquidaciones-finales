@@ -1,3 +1,7 @@
+# Nombre fijo del proyecto: los contenedores y el volumen de la base de datos
+# no dependen del nombre de la carpeta (renombrarla no crea una base vacía).
+name: auditoria-de-liquidaciones-finales
+
 services:
   postgres:
     image: postgres:16-alpine
