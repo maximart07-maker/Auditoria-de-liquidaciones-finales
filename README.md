@@ -42,7 +42,8 @@ npm install
 #    desde node_modules vía workspace; su dist/ no se versiona en git)
 npm run build --workspace packages/motor-calculo
 
-# 3. Levantar Postgres/Redis/MinIO
+# 3. Levantar Postgres y Redis (MinIO es opcional y no arranca por defecto:
+#    la API todavía no usa almacenamiento de objetos — ver docker-compose.yml)
 docker compose up -d
 
 # 4. Configurar variables de entorno

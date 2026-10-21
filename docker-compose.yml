@@ -18,8 +18,13 @@ services:
       - "6379:6379"
 
   minio:
-    # MinIO retiró la imagen minio/minio de Docker Hub para pulls anónimos en
-    # 2024 (pide "docker login"); quay.io sigue siendo público y gratuito.
+    # Opcional: la API todavía no usa almacenamiento de objetos, así que MinIO
+    # no arranca con `docker compose up -d`. Solo se levanta con
+    # `docker compose --profile almacenamiento up -d`.
+    # Ojo: MinIO dejó de publicar imágenes para descarga anónima (Docker Hub y
+    # quay.io responden 401), así que levantarlo requiere `docker login` o una
+    # imagen alternativa compatible con S3.
+    profiles: ["almacenamiento"]
     image: quay.io/minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
