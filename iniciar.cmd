@@ -18,6 +18,8 @@ if errorlevel 1 (
   call npm install
   call npm run build --workspace packages/motor-calculo
 )
+REM Cierra copias anteriores de la app (procesos node) que hayan quedado ocupando los puertos.
+powershell -NoProfile -Command "foreach($p in 3000,3001){ Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $proc = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; if ($proc -and $proc.ProcessName -eq 'node') { Stop-Process -Id $proc.Id -Force } } }"
 echo.
 echo Iniciando la app. Abri http://localhost:3000 cuando aparezca "Ready".
 echo Para detenerla, cerra esta ventana o apreta Ctrl+C.
