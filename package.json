@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c magenta,yellow \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "npm run start:dev --workspace apps/api",
+    "dev:api": "npm run build --workspace packages/motor-calculo && npm run start:dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web",
     "build": "npm run build --workspace packages/motor-calculo && npm run build --workspace apps/api && npm run build --workspace apps/web",
     "test": "npm run test --workspaces --if-present",
