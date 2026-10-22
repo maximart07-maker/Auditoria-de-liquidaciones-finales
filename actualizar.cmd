@@ -14,6 +14,7 @@ if errorlevel 1 (
 )
 echo.
 echo Instalando dependencias...
+rmdir node_modules\@audit\motor-calculo 2>nul
 call npm install
 echo.
 echo Compilando el motor de calculo...
