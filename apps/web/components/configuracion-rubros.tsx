@@ -169,7 +169,7 @@ export function ConfiguracionRubros({ clienteId, inicial }: { clienteId: string;
           <button
             type="submit"
             disabled={guardandoRubro !== null}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primario"
           >
             Agregar concepto
           </button>

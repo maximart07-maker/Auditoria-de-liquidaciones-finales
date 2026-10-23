@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid theme('colors.crowe.magenta');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Botón de acción principal: índigo Crowe, ciruela al pasar el mouse. */
+  .btn-primario {
+    @apply rounded bg-crowe-indigo px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-crowe-ciruela disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-crowe-indigo;
+  }
+}

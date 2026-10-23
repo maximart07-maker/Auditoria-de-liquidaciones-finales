@@ -404,7 +404,7 @@ Cada cliente puede tener su propia combinación de conceptos (`Rubro`) a través
 
 ## 10. Cargas sociales y costo laboral por cliente
 
-Cada cliente tiene una configuración de cargas sociales (`ConfiguracionCargasSocialesCliente`, una por cliente) que se carga en `/clientes/:id/cargas-sociales` — al crear un cliente nuevo la web lleva directo a esa pantalla, y el panel del cliente avisa mientras no esté configurada. La API es `GET|PUT /clientes/:clienteId/cargas-sociales` y `POST /clientes/:clienteId/cargas-sociales/calculo` (`apps/api/src/cargas-sociales/`). Las reglas viven en `calcularCargasSociales` y `validarConfiguracionCargasSociales` (`packages/motor-calculo/src/cargas-sociales.ts`).
+Cada cliente tiene una configuración de cargas sociales (`ConfiguracionCargasSocialesCliente`, una por cliente) que se carga desde el menú lateral del cliente, sección **Datos del cliente → Cargas sociales** (`/clientes/:id/cargas-sociales`). Es un dato propio del cliente, no de un módulo: lo usan los controles posteriores. Al crear un cliente nuevo la web lleva directo a esa pantalla, y el ítem del menú muestra "Pendiente" mientras no esté configurada. La API es `GET|PUT /clientes/:clienteId/cargas-sociales` y `POST /clientes/:clienteId/cargas-sociales/calculo` (`apps/api/src/cargas-sociales/`). Las reglas viven en `calcularCargasSociales` y `validarConfiguracionCargasSociales` (`packages/motor-calculo/src/cargas-sociales.ts`).
 
 Parámetros del cliente:
 

@@ -3,26 +3,28 @@ import { apiClient } from '@/lib/api-client';
 import { EstadoBadge } from '@/components/ui/estado-badge';
 import { EmpleadosYCasos } from '@/components/empleados-y-casos';
 import { EliminarCasoBoton } from '@/components/eliminar-caso-boton';
+import { BotonVolver } from '@/components/ui/boton-volver';
 import { esCasoEliminable } from '@/lib/casos';
 
 export default async function PanelClientePage({ params }: { params: { clienteId: string } }) {
-  const [cliente, casos, empleados, cargasSociales] = await Promise.all([
+  const [cliente, casos, empleados] = await Promise.all([
     apiClient.obtenerCliente(params.clienteId),
     apiClient.listarCasosIndividuales(params.clienteId),
     apiClient.listarEmpleados(params.clienteId),
-    apiClient.obtenerCargasSociales(params.clienteId).catch(() => null),
   ]);
 
   return (
     <div className="space-y-8">
-      {cargasSociales && !cargasSociales.configurado && (
-        <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Este cliente todavía no tiene configuradas sus cargas sociales (SUSS, obra social, FAL, ART, SCVO).{' '}
-          <Link href={`/clientes/${cliente.id}/cargas-sociales`} className="font-medium underline">
-            Configurarlas ahora
-          </Link>
+      <div className="space-y-3">
+        <BotonVolver href="/">Volver a clientes</BotonVolver>
+        <p className="text-sm text-slate-500">
+          <Link href="/" className="hover:underline">
+            Clientes
+          </Link>{' '}
+          / {cliente.razonSocial} / Liquidaciones finales
         </p>
-      )}
+        <h1 className="text-xl font-semibold">Liquidaciones finales — {cliente.razonSocial}</h1>
+      </div>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Casos individuales</h2>

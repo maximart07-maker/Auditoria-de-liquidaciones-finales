@@ -275,7 +275,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
           <button
             type="submit"
             disabled={guardando}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primario"
           >
             {guardando ? 'Guardando…' : 'Guardar configuración'}
           </button>
@@ -286,7 +286,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
       </form>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">6. Calcular costo laboral</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Probar la configuración: costo laboral</h2>
         <form onSubmit={calcular} className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-slate-300 p-4">
           <Campo etiqueta="Sueldo bruto remunerativo por empleado $">
             <input
@@ -314,7 +314,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
           <button
             type="submit"
             disabled={calculando || !configurado}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primario"
           >
             {calculando ? 'Calculando…' : 'Calcular'}
           </button>
