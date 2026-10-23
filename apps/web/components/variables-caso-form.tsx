@@ -187,7 +187,7 @@ export function VariablesCasoForm({ casoId, variables }: { casoId: string; varia
         <button
           type="submit"
           disabled={guardando}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          className="btn-primario"
         >
           {guardando ? 'Guardando…' : 'Guardar variables'}
         </button>

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, ReactNode, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CargasSocialesCliente,
   ConfiguracionCargasSociales as Configuracion,
@@ -83,6 +84,7 @@ function Campo({ etiqueta, children }: { etiqueta: string; children: ReactNode }
 const claseInput = 'w-36 rounded border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-100';
 
 export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId: string; inicial: CargasSocialesCliente }) {
+  const router = useRouter();
   const c = inicial.configuracion;
   const [configurado, setConfigurado] = useState(inicial.configurado);
   const [form, setForm] = useState({
@@ -142,6 +144,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
       setConfigurado(true);
       setResultado(null);
       setMensaje({ tipo: 'ok', texto: 'Configuración guardada.' });
+      router.refresh();
     } catch (error) {
       setMensaje({ tipo: 'error', texto: (error as Error).message });
     } finally {
@@ -272,7 +275,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
           <button
             type="submit"
             disabled={guardando}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primario"
           >
             {guardando ? 'Guardando…' : 'Guardar configuración'}
           </button>
@@ -283,7 +286,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
       </form>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">6. Calcular costo laboral</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Probar la configuración: costo laboral</h2>
         <form onSubmit={calcular} className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-slate-300 p-4">
           <Campo etiqueta="Sueldo bruto remunerativo por empleado $">
             <input
@@ -311,7 +314,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
           <button
             type="submit"
             disabled={calculando || !configurado}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="btn-primario"
           >
             {calculando ? 'Calculando…' : 'Calcular'}
           </button>

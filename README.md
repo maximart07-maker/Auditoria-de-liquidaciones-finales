@@ -1,4 +1,4 @@
-# Auditoría de Liquidaciones Finales
+# Auditoría Control de Nómina
 
 Sistema para el control, comparación y auditoría de liquidaciones finales de sueldos (despidos, renuncias, mutuos acuerdos, etc.) para múltiples clientes, bajo legislación laboral argentina.
 
@@ -6,6 +6,7 @@ Permite gestionar uno o varios clientes en simultáneo, desde una liquidación p
 
 ## Documentación
 
+- [`docs/arquitectura-saas-auditoria-nomina.md`](docs/arquitectura-saas-auditoria-nomina.md) — Arquitectura objetivo de la plataforma SaaS de Auditoría de Nómina (ingesta LSD/F931/ERPs, Mapping Desk, motor de reglas CCT/SS/Ganancias, modelo PostgreSQL, seguridad y Ley 25.326). El MVP de liquidaciones finales pasa a ser su módulo "Egresos".
 - [`docs/arquitectura.md`](docs/arquitectura.md) — Propuesta de arquitectura general y stack tecnológico.
 - [`docs/modelo-datos.md`](docs/modelo-datos.md) — Modelo de datos (entidades, relaciones, DDL).
 - [`docs/flujo-ux.md`](docs/flujo-ux.md) — Flujo de usuario (UX/UI), de la carga de documentos al informe de auditoría.
@@ -41,7 +42,8 @@ npm install
 #    desde node_modules vía workspace; su dist/ no se versiona en git)
 npm run build --workspace packages/motor-calculo
 
-# 3. Levantar Postgres/Redis/MinIO
+# 3. Levantar Postgres y Redis (MinIO es opcional y no arranca por defecto:
+#    la API todavía no usa almacenamiento de objetos — ver docker-compose.yml)
 docker compose up -d
 
 # 4. Configurar variables de entorno
@@ -52,10 +54,11 @@ cp .env.example apps/web/.env.local   # solo necesita NEXT_PUBLIC_API_URL
 npm run prisma:migrate --workspace apps/api
 npm run prisma:seed --workspace apps/api
 
-# 6. Levantar backend y frontend (en dos terminales)
-npm run dev:api   # http://localhost:3001
-npm run dev:web   # http://localhost:3000
+# 6. Levantar backend y frontend juntos (una sola terminal)
+npm run dev       # web: http://localhost:3000 · api: http://localhost:3001
 ```
+
+En Windows, después de la primera instalación alcanza con hacer doble clic en `iniciar.cmd`: levanta la base de datos con Docker y arranca backend y frontend en la misma ventana. Para traer cambios nuevos, doble clic en `actualizar.cmd` (baja los cambios, instala dependencias, compila el motor y aplica migraciones).
 
 Si después modificás algo dentro de `packages/motor-calculo`, hay que repetir el paso 2 (`npm run build --workspace packages/motor-calculo`) y reiniciar `npm run dev:api` para que el backend vea el cambio — el watch de `nest start` no recompila ese paquete externo.
 

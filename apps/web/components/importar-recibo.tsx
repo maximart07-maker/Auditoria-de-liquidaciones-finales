@@ -87,7 +87,7 @@ export function ImportarRecibo({ clienteId }: { clienteId: string }) {
         <button
           type="submit"
           disabled={importando}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          className="btn-primario"
         >
           {importando ? 'Importando…' : 'Importar recibo'}
         </button>
@@ -106,7 +106,7 @@ export function ImportarRecibo({ clienteId }: { clienteId: string }) {
             {resultado.empleado.creado ? 'dado de alta ahora' : 'ya existía'}
           </p>
           <p>
-            <Link href={`/casos/${resultado.casoId}`} className="font-medium text-slate-900 hover:underline">
+            <Link href={`/casos/${resultado.casoId}`} className="font-medium text-crowe-indigo hover:text-crowe-magenta hover:underline">
               Ver el caso →
             </Link>
           </p>
