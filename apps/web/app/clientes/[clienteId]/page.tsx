@@ -3,7 +3,6 @@ import { apiClient } from '@/lib/api-client';
 import { EstadoBadge } from '@/components/ui/estado-badge';
 import { EmpleadosYCasos } from '@/components/empleados-y-casos';
 import { EliminarCasoBoton } from '@/components/eliminar-caso-boton';
-import { BotonVolver } from '@/components/ui/boton-volver';
 import { esCasoEliminable } from '@/lib/casos';
 
 export default async function PanelClientePage({ params }: { params: { clienteId: string } }) {
@@ -11,51 +10,19 @@ export default async function PanelClientePage({ params }: { params: { clienteId
     apiClient.obtenerCliente(params.clienteId),
     apiClient.listarCasosIndividuales(params.clienteId),
     apiClient.listarEmpleados(params.clienteId),
-    apiClient.obtenerCargasSociales(params.clienteId),
+    apiClient.obtenerCargasSociales(params.clienteId).catch(() => null),
   ]);
 
   return (
     <div className="space-y-8">
-      <div className="space-y-3">
-        <BotonVolver href="/">Volver a clientes</BotonVolver>
-        <p className="text-sm text-slate-500">
-          <Link href="/" className="hover:underline">
-            Clientes
-          </Link>{' '}
-          / {cliente.razonSocial}
+      {cargasSociales && !cargasSociales.configurado && (
+        <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Este cliente todavía no tiene configuradas sus cargas sociales (SUSS, obra social, FAL, ART, SCVO).{' '}
+          <Link href={`/clientes/${cliente.id}/cargas-sociales`} className="font-medium underline">
+            Configurarlas ahora
+          </Link>
         </p>
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{cliente.razonSocial}</h1>
-          <div className="flex gap-2">
-            <Link
-              href={`/clientes/${cliente.id}/importar`}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
-            >
-              Importar nómina
-            </Link>
-            <Link
-              href={`/clientes/${cliente.id}/configuracion`}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
-            >
-              Configurar conceptos fijos y variables
-            </Link>
-            <Link
-              href={`/clientes/${cliente.id}/cargas-sociales`}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
-            >
-              Cargas sociales
-            </Link>
-          </div>
-        </div>
-        {!cargasSociales.configurado && (
-          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Este cliente todavía no tiene configuradas sus cargas sociales (SUSS, obra social, FAL, ART, SCVO).{' '}
-            <Link href={`/clientes/${cliente.id}/cargas-sociales`} className="font-medium underline">
-              Configurarlas ahora
-            </Link>
-          </p>
-        )}
-      </div>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Casos individuales</h2>

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, ReactNode, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CargasSocialesCliente,
   ConfiguracionCargasSociales as Configuracion,
@@ -83,6 +84,7 @@ function Campo({ etiqueta, children }: { etiqueta: string; children: ReactNode }
 const claseInput = 'w-36 rounded border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-100';
 
 export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId: string; inicial: CargasSocialesCliente }) {
+  const router = useRouter();
   const c = inicial.configuracion;
   const [configurado, setConfigurado] = useState(inicial.configurado);
   const [form, setForm] = useState({
@@ -142,6 +144,7 @@ export function ConfiguracionCargasSociales({ clienteId, inicial }: { clienteId:
       setConfigurado(true);
       setResultado(null);
       setMensaje({ tipo: 'ok', texto: 'Configuración guardada.' });
+      router.refresh();
     } catch (error) {
       setMensaje({ tipo: 'error', texto: (error as Error).message });
     } finally {
