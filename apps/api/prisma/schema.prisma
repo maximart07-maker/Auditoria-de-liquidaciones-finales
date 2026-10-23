@@ -108,6 +108,7 @@ model Cliente {
   lotes                Lote[]
   configuracionesRubro ConfiguracionRubroCliente[]
   conceptos            ConceptoCliente[]
+  cargasSociales       ConfiguracionCargasSocialesCliente?
 
   @@map("cliente")
 }
@@ -134,6 +135,53 @@ model ConceptoCliente {
 
   @@unique([clienteId, codigo])
   @@map("concepto_cliente")
+}
+
+enum TipoEmpleadorSUSS {
+  pyme
+  gran_empresa
+}
+
+enum RegimenDiferencialSUSS {
+  comun
+  choferes
+  construccion
+  docentes
+  insalubres
+  manual
+}
+
+enum RegimenDetraccion {
+  general
+  incrementado
+  sin_detraccion
+}
+
+/// Parámetros de cargas sociales del cliente (SUSS / ARCA) para calcular el
+/// costo laboral y las contribuciones patronales. Uno por cliente. Las reglas
+/// y los valores por defecto viven en `@audit/motor-calculo`
+/// (`calcularCargasSociales`) — ver docs/motor-calculo.md §10.
+/// `montoDetraccionPersonalizado` null = monto de la Ley 27.541;
+/// `horasSemanalesJornadaParcial` null = jornada completa.
+model ConfiguracionCargasSocialesCliente {
+  id                             String                 @id @default(uuid())
+  clienteId                      String                 @unique @map("cliente_id")
+  tipoEmpleador                  TipoEmpleadorSUSS      @map("tipo_empleador")
+  regimenDiferencial             RegimenDiferencialSUSS @default(comun) @map("regimen_diferencial")
+  adicionalDiferencialPorcentaje Decimal                @default(0) @map("adicional_diferencial_porcentaje") @db.Decimal(5, 2)
+  aplicaFal                      Boolean                @default(false) @map("aplica_fal")
+  artPorcentaje                  Decimal                @default(0) @map("art_porcentaje") @db.Decimal(5, 2)
+  artCuotaFija                   Decimal                @default(0) @map("art_cuota_fija") @db.Decimal(14, 2)
+  scvoPorEmpleado                Decimal                @default(0) @map("scvo_por_empleado") @db.Decimal(14, 2)
+  regimenDetraccion              RegimenDetraccion      @default(general) @map("regimen_detraccion")
+  montoDetraccionPersonalizado   Decimal?               @map("monto_detraccion_personalizado") @db.Decimal(14, 2)
+  horasSemanalesJornadaParcial   Decimal?               @map("horas_semanales_jornada_parcial") @db.Decimal(5, 2)
+  createdAt                      DateTime               @default(now()) @map("created_at")
+  updatedAt                      DateTime               @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@map("configuracion_cargas_sociales_cliente")
 }
 
 model Usuario {

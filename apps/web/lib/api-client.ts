@@ -203,7 +203,76 @@ export interface ResumenImportacionConceptos {
   conceptosActualizados: number;
 }
 
+export type TipoEmpleadorSUSS = 'pyme' | 'gran_empresa';
+export type RegimenDiferencialSUSS = 'comun' | 'choferes' | 'construccion' | 'docentes' | 'insalubres' | 'manual';
+export type RegimenDetraccion = 'general' | 'incrementado' | 'sin_detraccion';
+
+export interface ConfiguracionCargasSociales {
+  tipoEmpleador: TipoEmpleadorSUSS;
+  regimenDiferencial: RegimenDiferencialSUSS;
+  adicionalDiferencialPorcentaje: number;
+  aplicaFAL: boolean;
+  artPorcentaje: number;
+  artCuotaFija: number;
+  scvoPorEmpleado: number;
+  regimenDetraccion: RegimenDetraccion;
+  montoDetraccionPersonalizado: number | null;
+  horasSemanalesJornadaParcial: number | null;
+}
+
+export interface CargasSocialesCliente {
+  configurado: boolean;
+  configuracion: ConfiguracionCargasSociales;
+}
+
+export interface CalculoCargasSocialesInput {
+  sueldoBruto: number;
+  cantidadEmpleados: number;
+  incluyeSAC: boolean;
+}
+
+export interface LineaCargasSociales {
+  concepto: 'SUSS' | 'OBRA_SOCIAL' | 'FAL' | 'ART' | 'SCVO';
+  descripcion: string;
+  baseImponible: number | null;
+  alicuota: number | null;
+  fijo: number | null;
+  importePorEmpleado: number;
+  importeTotal: number;
+}
+
+export interface ResultadoCargasSociales {
+  resumen: {
+    alicuotaSUSSBase: number;
+    adicionalDiferencial: number;
+    alicuotaSUSSTotal: number;
+    factorJornada: number;
+    horasSemanales: number;
+    montoDetraccionBase: number;
+    montoDetraccionAplicado: number;
+    alicuotaFAL: number;
+  };
+  lineas: LineaCargasSociales[];
+  totales: {
+    sueldoBrutoPorEmpleado: number;
+    sueldoBrutoTotal: number;
+    cargasPorEmpleado: number;
+    cargasTotal: number;
+    costoLaboralPorEmpleado: number;
+    costoLaboralTotal: number;
+    sobrecostoPorcentaje: number;
+  };
+}
+
 export const apiClient = {
+  obtenerCargasSociales: (clienteId: string) => request<CargasSocialesCliente>(`/clientes/${clienteId}/cargas-sociales`),
+  guardarCargasSociales: (clienteId: string, dto: ConfiguracionCargasSociales) =>
+    request<CargasSocialesCliente>(`/clientes/${clienteId}/cargas-sociales`, { method: 'PUT', body: JSON.stringify(dto) }),
+  calcularCargasSociales: (clienteId: string, dto: CalculoCargasSocialesInput) =>
+    request<ResultadoCargasSociales>(`/clientes/${clienteId}/cargas-sociales/calculo`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }),
   listarClientes: () => request<Cliente[]>('/clientes'),
   obtenerCliente: (id: string) => request<Cliente>(`/clientes/${id}`),
   crearCliente: (dto: CrearClienteInput) =>

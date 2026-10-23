@@ -15,3 +15,4 @@ export { calcularSACProporcional } from './rubros/sac-proporcional';
 export { calcularVacacionesNoGozadas } from './rubros/vacaciones-no-gozadas';
 export { calcularVacacionesPeriodosAnteriores } from './rubros/vacaciones-periodos-anteriores';
 export { calcularSACSobreVacaciones } from './rubros/sac-sobre-vacaciones';
+export * from './cargas-sociales';

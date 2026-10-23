@@ -25,7 +25,7 @@ export function CrearClienteForm() {
         cuit: form.cuit.trim(),
         industria: form.industria.trim() || undefined,
       });
-      router.push(`/clientes/${cliente.id}`);
+      router.push(`/clientes/${cliente.id}/cargas-sociales`);
     } catch (e) {
       setError((e as Error).message);
       setGuardando(false);

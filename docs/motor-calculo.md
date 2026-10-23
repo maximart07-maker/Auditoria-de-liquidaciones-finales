@@ -401,3 +401,37 @@ Cada cliente puede tener su propia combinación de conceptos (`Rubro`) a través
 - **Conceptos variables** (`Rubro.esLegal = false`): ítems negociados propios del cliente (premios, bonos, gratificaciones no legales) que se dan de alta bajo demanda con un código, nombre y `valorFijo`, sin piso legal.
 
 `AuditoriasService.ejecutar()` resuelve el repositorio de parámetros normativos a usar por cliente (`repositorioParametrosParaCliente`) antes de invocar `calcularLiquidacionSistema`, de modo que la personalización por cliente queda reflejada en cada auditoría sin tocar el motor puro.
+
+## 10. Cargas sociales y costo laboral por cliente
+
+Cada cliente tiene una configuración de cargas sociales (`ConfiguracionCargasSocialesCliente`, una por cliente) que se carga en `/clientes/:id/cargas-sociales` — al crear un cliente nuevo la web lleva directo a esa pantalla, y el panel del cliente avisa mientras no esté configurada. La API es `GET|PUT /clientes/:clienteId/cargas-sociales` y `POST /clientes/:clienteId/cargas-sociales/calculo` (`apps/api/src/cargas-sociales/`). Las reglas viven en `calcularCargasSociales` y `validarConfiguracionCargasSociales` (`packages/motor-calculo/src/cargas-sociales.ts`).
+
+Parámetros del cliente:
+
+| Parámetro | Valores |
+|---|---|
+| Tipo de empleador | PyME / sin fines de lucro / sector público / agro / construcción: SUSS 18,00%, FAL 2,50% · Gran empresa: SUSS 20,40%, FAL 1,00% · Obra social 6,00% en ambos |
+| Régimen diferencial | Común +0% · Choferes, Construcción (UOCRA), Carne/Minería/Petroleros/Insalubres +2% a +5% · Docentes +2% fijo · Manual (libre) |
+| FAL | Aplica / no aplica |
+| ART | % variable sobre el bruto + cuota fija FFEP por empleado |
+| SCVO | Costo fijo por empleado |
+| Detracción | General art. 22 Ley 27.541 ($7.003,68) · Incrementada art. 23 ($17.509,20) · Sin detracción. Se puede cargar un monto actualizado que reemplaza al de la ley |
+| Jornada | Completa (48 hs) o parcial art. 92 ter LCT (horas semanales) |
+
+Datos de cada cálculo: sueldo bruto remunerativo **por empleado**, cantidad de empleados, si incluye SAC.
+
+```
+alícuotaSUSS      = base (18 / 20,40) + adicional diferencial
+detracción        = montoBase × (horasSemanales / 48) × (incluyeSAC ? 1,5 : 1)
+baseSUSS          = max(0, bruto − detracción)
+SUSS              = baseSUSS × alícuotaSUSS
+obraSocial        = bruto × 6%
+FAL               = bruto × (aplicaFAL ? 2,5% PyME | 1% gran empresa : 0)
+ART               = bruto × %ART + cuotaFija
+SCVO              = costo fijo
+cargas            = SUSS + obraSocial + FAL + ART + SCVO
+costoLaboral      = bruto + cargas          (por empleado; × cantidad para la nómina)
+sobrecosto %      = cargas / bruto
+```
+
+El cálculo es por empleado y los totales de la nómina se multiplican por la cantidad: así la detracción, la cuota fija de la ART y el SCVO se aplican una vez por trabajador, como en el F.931. Los montos de detracción de la ley son los originales de la Ley 27.541; si hay un valor vigente distinto, se carga en "monto de detracción actualizado".

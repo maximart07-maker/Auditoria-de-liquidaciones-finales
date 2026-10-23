@@ -7,10 +7,11 @@ import { BotonVolver } from '@/components/ui/boton-volver';
 import { esCasoEliminable } from '@/lib/casos';
 
 export default async function PanelClientePage({ params }: { params: { clienteId: string } }) {
-  const [cliente, casos, empleados] = await Promise.all([
+  const [cliente, casos, empleados, cargasSociales] = await Promise.all([
     apiClient.obtenerCliente(params.clienteId),
     apiClient.listarCasosIndividuales(params.clienteId),
     apiClient.listarEmpleados(params.clienteId),
+    apiClient.obtenerCargasSociales(params.clienteId),
   ]);
 
   return (
@@ -38,8 +39,22 @@ export default async function PanelClientePage({ params }: { params: { clienteId
             >
               Configurar conceptos fijos y variables
             </Link>
+            <Link
+              href={`/clientes/${cliente.id}/cargas-sociales`}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+            >
+              Cargas sociales
+            </Link>
           </div>
         </div>
+        {!cargasSociales.configurado && (
+          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Este cliente todavía no tiene configuradas sus cargas sociales (SUSS, obra social, FAL, ART, SCVO).{' '}
+            <Link href={`/clientes/${cliente.id}/cargas-sociales`} className="font-medium underline">
+              Configurarlas ahora
+            </Link>
+          </p>
+        )}
       </div>
 
       <section className="space-y-3">
