@@ -5,7 +5,7 @@ import { SeveridadBadge } from '@/components/ui/severidad-badge';
 const pesos = (valor: number | null) =>
   valor === null ? '—' : valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const porcentaje = (valor: number | null) =>
-  valor === null ? '—' : `${valor.toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`;
+  valor === null ? '—' : `${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`;
 
 function Tarjeta({ titulo, valor, nota }: { titulo: string; valor: string; nota?: string }) {
   return (
@@ -37,7 +37,7 @@ function TablaConceptos({ conceptos, total }: { conceptos: ConceptoF931[]; total
               <td className="px-4 py-2">{c.descripcion}</td>
               <td className="whitespace-nowrap px-4 py-2 text-slate-500">{c.baseEtiqueta ?? '—'}</td>
               <td className="px-4 py-2 text-right tabular-nums">{pesos(c.baseTotal)}</td>
-              <td className="px-4 py-2 text-right tabular-nums">
+              <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
                 {c.pendiente ? (
                   <span
                     title={c.pendiente}
@@ -83,7 +83,10 @@ function Seccion({ titulo, children, accion }: { titulo: string; children: React
 
 /** Encabezado corto de cada concepto en el detalle por empleado. */
 const COLUMNA_CONCEPTO: Record<string, string> = {
-  CONTRIB_SUSS: 'SUSS',
+  CONTRIB_SIPA: 'SIPA',
+  CONTRIB_INSSJP: 'INSSJP',
+  CONTRIB_FNE: 'FNE',
+  CONTRIB_AAFF: 'AAFF',
   CONTRIB_OBRA_SOCIAL: 'Obra social',
   CONTRIB_FSR: 'FSR',
   CONTRIB_FAL: 'FAL',

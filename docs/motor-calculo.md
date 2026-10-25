@@ -450,12 +450,21 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 
 | Concepto | Base | Alícuota |
 |---|---|---|
-| SUSS (SIPA, INSSJP, FNE, AAFF) | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 18 % PyME / 20,40 % gran empresa + adicional diferencial |
+| SUSS | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 18 % PyME / 20,40 % gran empresa + adicional diferencial |
 | Obra Social | Rem. 8 | 5,10 % (85 % del 6 %) |
 | Fondo Solidario de Redistribución (FSR) | Rem. 8 | 0,90 % (15 % del 6 %) |
 | FAL (si aplica) | Rem. 2 | 2,5 % / 1 % |
 | ART | Rem. 9 | % del cliente + cuota fija por empleado |
 | SCVO | — | monto fijo por empleado |
+
+El SUSS se desglosa por subsistema (`DESGLOSE_CONTRIBUCIONES_SUSS`, Decreto 814/01 y art. 19 Ley 27.541), todos sobre la misma base. El adicional del régimen diferencial se suma a SIPA:
+
+| Subsistema | Gran empresa (20,40 %) | PyME (18 %) |
+|---|---|---|
+| SIPA | 12,35 % | 10,77 % |
+| INSSJP (PAMI) | 1,80 % | 1,59 % |
+| FNE | 1,11 % | 0,94 % |
+| Asignaciones familiares | 5,14 % | 4,70 % |
 
 **Aportes** (alícuotas de ley, `ALICUOTAS_APORTES_F931`, por empleado):
 

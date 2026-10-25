@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ConfiguracionCargasSociales } from '../src/cargas-sociales';
+import { ALICUOTA_SUSS_BASE, ConfiguracionCargasSociales } from '../src/cargas-sociales';
 import {
   calcularControlF931,
   parsearMontoArgentino,
   parsearPeriodoF931,
   parsearReporteF931,
+  DESGLOSE_CONTRIBUCIONES_SUSS,
   ReporteF931InvalidoError,
   repartirObraSocialFSR,
 } from '../src/control-f931';
@@ -110,8 +111,11 @@ describe('calcularControlF931', () => {
   it('calcula las contribuciones con la configuración del cliente sobre las bases del reporte', () => {
     const r = calcularControlF931(config(), filas);
     const perez = r.empleados[0];
-    // SUSS gran empresa 20,40% sobre Rem. 10
-    expect(perez.contribuciones.CONTRIB_SUSS).toBe(3_223_819.44);
+    // SUSS gran empresa 20,40 % sobre Rem. 10, desglosado
+    expect(perez.contribuciones.CONTRIB_SIPA).toBe(1_951_675);
+    expect(perez.contribuciones.CONTRIB_INSSJP).toBe(284_454.66);
+    expect(perez.contribuciones.CONTRIB_FNE).toBe(175_413.7);
+    expect(perez.contribuciones.CONTRIB_AAFF).toBe(812_276.07);
     // Obra social 6 % sobre Rem. 8: 5,10 % obra social + 0,90 % FSR
     expect(perez.contribuciones.CONTRIB_OBRA_SOCIAL).toBe(806_312.05);
     expect(perez.contribuciones.CONTRIB_FSR).toBe(142_290.36);
@@ -120,12 +124,13 @@ describe('calcularControlF931', () => {
     expect(perez.contribuciones.CONTRIB_SCVO).toBe(100);
 
     // El pasante (Rem. 10 = 0) no tiene contribuciones SUSS.
-    expect(r.empleados[2].contribuciones.CONTRIB_SUSS).toBe(0);
+    expect(r.empleados[2].contribuciones.CONTRIB_SIPA).toBe(0);
+    expect(r.empleados[2].contribuciones.CONTRIB_AAFF).toBe(0);
 
-    const suss = r.contribuciones.find((c) => c.codigo === 'CONTRIB_SUSS')!;
+    const suss = r.contribuciones.find((c) => c.codigo === 'CONTRIB_SIPA')!;
     expect(suss.baseEtiqueta).toBe('Rem. 10');
     expect(suss.importe).toBe(
-      Math.round(r.empleados.reduce((a, e) => a + e.contribuciones.CONTRIB_SUSS, 0) * 100) / 100,
+      Math.round(r.empleados.reduce((a, e) => a + e.contribuciones.CONTRIB_SIPA, 0) * 100) / 100,
     );
     expect(r.resumen.cantidadEmpleados).toBe(4);
   });
@@ -175,6 +180,25 @@ describe('calcularControlF931', () => {
     const r = calcularControlF931(config(), filas);
     expect(r.bases.map((b) => b.etiqueta)).not.toContain('Rem. 3');
     expect(r.bases).toHaveLength(7);
+  });
+
+  it('el desglose de cada tipo de empleador suma la alícuota total de SUSS', () => {
+    for (const tipo of ['gran_empresa', 'pyme'] as const) {
+      const d = DESGLOSE_CONTRIBUCIONES_SUSS[tipo];
+      expect(Math.round((d.SIPA + d.INSSJP + d.FNE + d.AAFF) * 100) / 100).toBe(ALICUOTA_SUSS_BASE[tipo]);
+    }
+  });
+
+  it('suma el adicional del régimen diferencial a SIPA', () => {
+    const r = calcularControlF931(config({ regimenDiferencial: 'choferes', adicionalDiferencialPorcentaje: 3 }), filas);
+    expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_SIPA')!.alicuota).toBe(15.35);
+    expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_INSSJP')!.alicuota).toBe(1.8);
+  });
+
+  it('PyME: desglosa el 18 % en SIPA 10,77, INSSJP 1,59, FNE 0,94 y AAFF 4,70', () => {
+    const r = calcularControlF931(config({ tipoEmpleador: 'pyme' }), filas);
+    const alicuotas = Object.fromEntries(r.contribuciones.map((c) => [c.codigo, c.alicuota]));
+    expect(alicuotas).toMatchObject({ CONTRIB_SIPA: 10.77, CONTRIB_INSSJP: 1.59, CONTRIB_FNE: 0.94, CONTRIB_AAFF: 4.7 });
   });
 
   it('sin detracción toma la Rem. 2 para las contribuciones SUSS', () => {

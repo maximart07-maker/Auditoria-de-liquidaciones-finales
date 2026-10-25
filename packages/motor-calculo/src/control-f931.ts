@@ -11,6 +11,7 @@
  */
 
 import {
+  TipoEmpleadorSUSS,
   ALICUOTA_FAL,
   ALICUOTA_OBRA_SOCIAL,
   ALICUOTA_SUSS_BASE,
@@ -331,6 +332,18 @@ const TOLERANCIA = 0.05;
 /** Alícuotas de aportes personales, en %. El 3 % de obra social incluye la parte del FSR (ex ANSSAL). */
 export const ALICUOTAS_APORTES_F931 = { SIPA: 11, INSSJP: 3, OBRA_SOCIAL: 3 } as const;
 
+/**
+ * Reparto de la contribución SUSS por subsistema (Decreto 814/01 y art. 19 Ley 27.541), en %.
+ * El adicional del régimen diferencial se suma a SIPA.
+ */
+export const DESGLOSE_CONTRIBUCIONES_SUSS: Record<
+  TipoEmpleadorSUSS,
+  { SIPA: number; INSSJP: number; FNE: number; AAFF: number }
+> = {
+  gran_empresa: { SIPA: 12.35, INSSJP: 1.8, FNE: 1.11, AAFF: 5.14 },
+  pyme: { SIPA: 10.77, INSSJP: 1.59, FNE: 0.94, AAFF: 4.7 },
+};
+
 /** Parte del aporte y de la contribución de obra social que va al Fondo Solidario de Redistribución. */
 export const PROPORCION_FSR = 0.15;
 
@@ -365,6 +378,24 @@ const APORTES: { codigo: string; descripcion: string; base: BaseF931; alicuota: 
   },
 ];
 
+/** Contribuciones SUSS: una línea por subsistema. */
+function lineasSUSS(config: ConfiguracionCargasSociales, base: BaseF931) {
+  const desglose = DESGLOSE_CONTRIBUCIONES_SUSS[config.tipoEmpleador];
+  const adicional = config.adicionalDiferencialPorcentaje;
+  return [
+    {
+      codigo: 'CONTRIB_SIPA',
+      descripcion: adicional > 0 ? `Contribución SIPA (incluye ${adicional}% de régimen diferencial)` : 'Contribución SIPA',
+      base,
+      alicuota: alicuotaRedondeada(desglose.SIPA + adicional),
+      fijo: null,
+    },
+    { codigo: 'CONTRIB_INSSJP', descripcion: 'Contribución INSSJP (PAMI)', base, alicuota: desglose.INSSJP, fijo: null },
+    { codigo: 'CONTRIB_FNE', descripcion: 'Contribución Fondo Nacional de Empleo (FNE)', base, alicuota: desglose.FNE, fijo: null },
+    { codigo: 'CONTRIB_AAFF', descripcion: 'Contribución Asignaciones Familiares (AAFF)', base, alicuota: desglose.AAFF, fijo: null },
+  ];
+}
+
 export function calcularControlF931(
   config: ConfiguracionCargasSociales,
   filas: FilaReporteF931[],
@@ -385,14 +416,8 @@ export function calcularControlF931(
     alicuota: number | null;
     fijo: number | null;
   }[] = [
-    {
-      codigo: 'CONTRIB_SUSS',
-      descripcion: 'Contribuciones SUSS (SIPA, INSSJP, FNE y AAFF)',
-      // Sin detracción no hay base reducida: se toma la base de contribuciones completa.
-      base: montoDetraccionCliente > 0 ? 'remuneracion10' : 'remuneracion2',
-      alicuota: alicuotaSUSSTotal,
-      fijo: null,
-    },
+    // Sin detracción no hay base reducida: se toma la base de contribuciones completa.
+    ...lineasSUSS(config, montoDetraccionCliente > 0 ? 'remuneracion10' : 'remuneracion2'),
     { codigo: 'CONTRIB_OBRA_SOCIAL', descripcion: 'Contribución Obra Social', base: 'remuneracion8', alicuota: CONTRIBUCION_OS.obraSocial, fijo: null },
     {
       codigo: 'CONTRIB_FSR',
