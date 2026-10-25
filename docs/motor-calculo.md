@@ -470,14 +470,14 @@ El SUSS se desglosa por subsistema (`DESGLOSE_CONTRIBUCIONES_SUSS`, Decreto 814/
 
 | Concepto | Base | Alícuota |
 |---|---|---|
-| Jubilatorio SIPA | Rem. 1 | 11 % (no se calcula a los pasantes, contrato 27) |
+| Jubilatorio SIPA | Rem. 1 | 11 % |
 | INSSJP (Ley 19.032) | Rem. 5 | 3 % |
 | Obra Social | Rem. 4 | 2,55 % (85 % del 3 %) |
 | Fondo Solidario de Redistribución (FSR) | Rem. 4 | 0,45 % (15 % del 3 %) |
 
 Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no se muestra en el panel, y el reporte se importa aunque no la traiga.
 
-**Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) no se les calcula el aporte SIPA y de las contribuciones solo llevan obra social (con su parte FSR), ART y SCVO; al contrato 99 solo se le calcula la ART (porcentaje y cuota fija), sin aportes ni otras contribuciones. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
+**Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) de los aportes solo se les calcula INSSJP (no SIPA ni obra social/FSR) y de las contribuciones solo llevan obra social (con su parte FSR), ART y SCVO; al contrato 99 solo se le calcula la ART (porcentaje y cuota fija), sin aportes ni otras contribuciones. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
 
 **Observaciones del control:** contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
 
