@@ -35,7 +35,7 @@ function TablaConceptos({ conceptos, total }: { conceptos: ConceptoF931[]; total
           {conceptos.map((c) => (
             <tr key={c.codigo}>
               <td className="px-4 py-2">{c.descripcion}</td>
-              <td className="px-4 py-2 text-slate-500">{c.baseEtiqueta ?? '—'}</td>
+              <td className="whitespace-nowrap px-4 py-2 text-slate-500">{c.baseEtiqueta ?? '—'}</td>
               <td className="px-4 py-2 text-right tabular-nums">{pesos(c.baseTotal)}</td>
               <td className="px-4 py-2 text-right tabular-nums">
                 {c.pendiente ? (
@@ -85,12 +85,14 @@ function Seccion({ titulo, children, accion }: { titulo: string; children: React
 const COLUMNA_CONCEPTO: Record<string, string> = {
   CONTRIB_SUSS: 'SUSS',
   CONTRIB_OBRA_SOCIAL: 'Obra social',
+  CONTRIB_FSR: 'FSR',
   CONTRIB_FAL: 'FAL',
   CONTRIB_ART: 'ART',
   CONTRIB_SCVO: 'SCVO',
   APORTE_SIPA: 'Ap. SIPA',
   APORTE_INSSJP: 'Ap. INSSJP',
   APORTE_OBRA_SOCIAL: 'Ap. O. Social',
+  APORTE_FSR: 'Ap. FSR',
 };
 
 export function PanelControlF931({ control, clienteId }: { control: ControlF931; clienteId: string }) {

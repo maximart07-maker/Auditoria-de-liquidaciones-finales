@@ -326,6 +326,18 @@ const TOLERANCIA = 0.05;
 /** Alícuotas de aportes personales, en %. El 3 % de obra social incluye la parte del FSR (ex ANSSAL). */
 export const ALICUOTAS_APORTES_F931 = { SIPA: 11, INSSJP: 3, OBRA_SOCIAL: 3 } as const;
 
+/** Parte del aporte y de la contribución de obra social que va al Fondo Solidario de Redistribución. */
+export const PROPORCION_FSR = 0.15;
+
+const alicuotaRedondeada = (valor: number) => Math.round(valor * 10_000) / 10_000;
+/** Divide una alícuota de obra social en la parte de la obra social y la del FSR. */
+export function repartirObraSocialFSR(alicuota: number): { obraSocial: number; fsr: number } {
+  const fsr = alicuotaRedondeada(alicuota * PROPORCION_FSR);
+  return { obraSocial: alicuotaRedondeada(alicuota - fsr), fsr };
+}
+const APORTE_OS = repartirObraSocialFSR(ALICUOTAS_APORTES_F931.OBRA_SOCIAL);
+const CONTRIBUCION_OS = repartirObraSocialFSR(ALICUOTA_OBRA_SOCIAL);
+
 /** Modalidad de contratación de pasantías: no lleva aporte jubilatorio SIPA. */
 export const MODALIDAD_PASANTIA = '27';
 
@@ -339,11 +351,12 @@ const aplicaAporte = (codigo: string, modalidad: string) => !(EXCLUSIONES_APORTE
 const APORTES: { codigo: string; descripcion: string; base: BaseF931; alicuota: number }[] = [
   { codigo: 'APORTE_SIPA', descripcion: 'Aporte jubilatorio SIPA', base: 'remuneracion1', alicuota: ALICUOTAS_APORTES_F931.SIPA },
   { codigo: 'APORTE_INSSJP', descripcion: 'Aporte INSSJP (Ley 19.032)', base: 'remuneracion5', alicuota: ALICUOTAS_APORTES_F931.INSSJP },
+  { codigo: 'APORTE_OBRA_SOCIAL', descripcion: 'Aporte Obra Social', base: 'remuneracion4', alicuota: APORTE_OS.obraSocial },
   {
-    codigo: 'APORTE_OBRA_SOCIAL',
-    descripcion: 'Aporte Obra Social y FSR',
+    codigo: 'APORTE_FSR',
+    descripcion: 'Aporte Fondo Solidario de Redistribución (FSR)',
     base: 'remuneracion4',
-    alicuota: ALICUOTAS_APORTES_F931.OBRA_SOCIAL,
+    alicuota: APORTE_OS.fsr,
   },
 ];
 
@@ -375,7 +388,14 @@ export function calcularControlF931(
       alicuota: alicuotaSUSSTotal,
       fijo: null,
     },
-    { codigo: 'CONTRIB_OBRA_SOCIAL', descripcion: 'Contribución Obra Social y FSR', base: 'remuneracion8', alicuota: ALICUOTA_OBRA_SOCIAL, fijo: null },
+    { codigo: 'CONTRIB_OBRA_SOCIAL', descripcion: 'Contribución Obra Social', base: 'remuneracion8', alicuota: CONTRIBUCION_OS.obraSocial, fijo: null },
+    {
+      codigo: 'CONTRIB_FSR',
+      descripcion: 'Contribución Fondo Solidario de Redistribución (FSR)',
+      base: 'remuneracion8',
+      alicuota: CONTRIBUCION_OS.fsr,
+      fijo: null,
+    },
     ...(config.aplicaFAL
       ? [{ codigo: 'CONTRIB_FAL', descripcion: 'Fondo de Asistencia Laboral (FAL)', base: 'remuneracion2' as BaseF931, alicuota: alicuotaFAL, fijo: null }]
       : []),

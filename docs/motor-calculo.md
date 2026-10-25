@@ -451,7 +451,8 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 | Concepto | Base | Alícuota |
 |---|---|---|
 | SUSS (SIPA, INSSJP, FNE, AAFF) | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 18 % PyME / 20,40 % gran empresa + adicional diferencial |
-| Obra Social y FSR | Rem. 8 | 6 % |
+| Obra Social | Rem. 8 | 5,10 % (85 % del 6 %) |
+| Fondo Solidario de Redistribución (FSR) | Rem. 8 | 0,90 % (15 % del 6 %) |
 | FAL (si aplica) | Rem. 2 | 2,5 % / 1 % |
 | ART | Rem. 9 | % del cliente + cuota fija por empleado |
 | SCVO | — | monto fijo por empleado |
@@ -462,7 +463,8 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 |---|---|---|
 | Jubilatorio SIPA | Rem. 1 | 11 % (no se calcula a los pasantes, contrato 27) |
 | INSSJP (Ley 19.032) | Rem. 5 | 3 % |
-| Obra Social y FSR | Rem. 4 | 3 % (incluye la parte del FSR; falta confirmar cómo se reparte) |
+| Obra Social | Rem. 4 | 2,55 % (85 % del 3 %) |
+| Fondo Solidario de Redistribución (FSR) | Rem. 4 | 0,45 % (15 % del 3 %) |
 
 Rem. 3 queda sin asignar a ningún concepto hasta confirmar qué representa.
 

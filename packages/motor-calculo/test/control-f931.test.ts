@@ -6,6 +6,7 @@ import {
   parsearPeriodoF931,
   parsearReporteF931,
   ReporteF931InvalidoError,
+  repartirObraSocialFSR,
 } from '../src/control-f931';
 
 // Encabezado tal como lo exporta el sistema de liquidación (con acentos).
@@ -70,6 +71,13 @@ describe('parsearReporteF931', () => {
   });
 });
 
+describe('repartirObraSocialFSR', () => {
+  it('el FSR se lleva el 15 % del aporte y de la contribución', () => {
+    expect(repartirObraSocialFSR(3)).toEqual({ obraSocial: 2.55, fsr: 0.45 });
+    expect(repartirObraSocialFSR(6)).toEqual({ obraSocial: 5.1, fsr: 0.9 });
+  });
+});
+
 describe('formatos', () => {
   it('montos argentinos', () => {
     expect(parsearMontoArgentino('15.810.040,15')).toBe(15_810_040.15);
@@ -93,8 +101,9 @@ describe('calcularControlF931', () => {
     const perez = r.empleados[0];
     // SUSS gran empresa 20,40% sobre Rem. 10
     expect(perez.contribuciones.CONTRIB_SUSS).toBe(3_223_819.44);
-    // Obra social 6% sobre Rem. 8
-    expect(perez.contribuciones.CONTRIB_OBRA_SOCIAL).toBe(948_602.41);
+    // Obra social 6 % sobre Rem. 8: 5,10 % obra social + 0,90 % FSR
+    expect(perez.contribuciones.CONTRIB_OBRA_SOCIAL).toBe(806_312.05);
+    expect(perez.contribuciones.CONTRIB_FSR).toBe(142_290.36);
     // ART 2% sobre Rem. 9 + 1.000 fijo
     expect(perez.contribuciones.CONTRIB_ART).toBe(317_200.8);
     expect(perez.contribuciones.CONTRIB_SCVO).toBe(100);
@@ -116,8 +125,10 @@ describe('calcularControlF931', () => {
     // Rem. 1, 4 y 5 topeadas en 4.691.748,47
     expect(perez.aportes.APORTE_SIPA).toBe(516_092.33);
     expect(perez.aportes.APORTE_INSSJP).toBe(140_752.45);
-    expect(perez.aportes.APORTE_OBRA_SOCIAL).toBe(140_752.45);
-    expect(perez.totalAportes).toBe(797_597.23);
+    // 3 % de obra social: 2,55 % obra social + 0,45 % FSR
+    expect(perez.aportes.APORTE_OBRA_SOCIAL).toBe(119_639.59);
+    expect(perez.aportes.APORTE_FSR).toBe(21_112.87);
+    expect(perez.totalAportes).toBe(797_597.24);
 
     const sipa = r.aportes.find((a) => a.codigo === 'APORTE_SIPA')!;
     expect(sipa.baseEtiqueta).toBe('Rem. 1');
@@ -127,7 +138,7 @@ describe('calcularControlF931', () => {
     expect(sipa.importe).toBe(
       Math.round(r.empleados.reduce((a, e) => a + e.aportes.APORTE_SIPA, 0) * 100) / 100,
     );
-    expect(r.aportes).toHaveLength(3);
+    expect(r.aportes).toHaveLength(4);
     expect(r.resumen.totalAportes).toBe(
       Math.round(r.aportes.reduce((a, x) => a + x.importe!, 0) * 100) / 100,
     );
@@ -138,7 +149,8 @@ describe('calcularControlF931', () => {
     const pasante = r.empleados.find((e) => e.modalidadContratacion === '27')!;
     expect(pasante.aportes.APORTE_SIPA).toBe(0);
     expect(pasante.aportes.APORTE_INSSJP).toBe(28_101.9);
-    expect(pasante.aportes.APORTE_OBRA_SOCIAL).toBe(28_101.9);
+    expect(pasante.aportes.APORTE_OBRA_SOCIAL).toBe(23_886.61);
+    expect(pasante.aportes.APORTE_FSR).toBe(4_215.28);
     const obs = r.observaciones.find((o) => o.titulo === 'Pasantes sin aporte SIPA')!;
     expect(obs.empleados.map((e) => e.legajo)).toEqual(['448']);
   });
