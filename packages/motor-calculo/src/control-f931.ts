@@ -356,14 +356,14 @@ export function repartirObraSocialFSR(alicuota: number): { obraSocial: number; f
 const APORTE_OS = repartirObraSocialFSR(ALICUOTAS_APORTES_F931.OBRA_SOCIAL);
 const CONTRIBUCION_OS = repartirObraSocialFSR(ALICUOTA_OBRA_SOCIAL);
 
-/** Modalidad de contratación de pasantías: solo aporte INSSJP y contribuciones de obra social, ART y SCVO. */
+/** Modalidad de contratación de pasantías: sin aportes; solo contribuciones de obra social, ART y SCVO. */
 export const MODALIDAD_PASANTIA = '27';
 
 /** Modalidad de contratación que solo lleva ART: sin aportes ni otras contribuciones. */
 export const MODALIDAD_SOLO_ART = '99';
 
 /** Conceptos que llevan los pasantes (la contribución de obra social incluye su parte FSR). */
-const CONCEPTOS_PASANTIA = ['APORTE_INSSJP', 'CONTRIB_OBRA_SOCIAL', 'CONTRIB_FSR', 'CONTRIB_ART', 'CONTRIB_SCVO'];
+const CONCEPTOS_PASANTIA = ['CONTRIB_OBRA_SOCIAL', 'CONTRIB_FSR', 'CONTRIB_ART', 'CONTRIB_SCVO'];
 
 /** Si a una modalidad de contratación le corresponde un concepto (aporte o contribución). */
 export function aplicaConceptoF931(codigo: string, modalidad: string): boolean {
@@ -548,7 +548,7 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
   agregar(
     'baja',
     'Pasantes: régimen de pasantías',
-    `Contrato ${MODALIDAD_PASANTIA}: de los aportes solo se les calcula INSSJP (no SIPA ni obra social, aunque el reporte informe sus bases) y de las contribuciones solo obra social (con FSR), ART y SCVO.`,
+    `Contrato ${MODALIDAD_PASANTIA}: no se les calculan aportes, aunque el reporte informe sus bases, y de las contribuciones solo llevan obra social (con FSR), ART y SCVO.`,
     filas.filter((f) => f.modalidadContratacion === MODALIDAD_PASANTIA),
   );
   agregar(

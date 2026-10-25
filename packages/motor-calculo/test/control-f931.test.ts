@@ -160,15 +160,14 @@ describe('calcularControlF931', () => {
     );
   });
 
-  it('a los pasantes (contrato 27) solo les calcula el aporte INSSJP', () => {
+  it('a los pasantes (contrato 27) no les calcula aportes', () => {
     const r = calcularControlF931(config(), filas);
     const pasante = r.empleados.find((e) => e.modalidadContratacion === '27')!;
     expect(pasante.aportes.APORTE_SIPA).toBe(0);
     expect(pasante.aportes.APORTE_OBRA_SOCIAL).toBe(0);
     expect(pasante.aportes.APORTE_FSR).toBe(0);
-    // 3 % de Rem. 5
-    expect(pasante.aportes.APORTE_INSSJP).toBe(28_101.9);
-    expect(pasante.totalAportes).toBe(28_101.9);
+    expect(pasante.aportes.APORTE_INSSJP).toBe(0);
+    expect(pasante.totalAportes).toBe(0);
     const obs = r.observaciones.find((o) => o.titulo === 'Pasantes: régimen de pasantías')!;
     expect(obs.empleados.map((e) => e.legajo)).toEqual(['448']);
   });
