@@ -161,9 +161,7 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
               {control.bases.map((b) => (
                 <tr key={b.base}>
                   <td className="px-4 py-2 font-medium">{b.etiqueta}</td>
-                  <td className="px-4 py-2 text-slate-600">
-                    {b.descripcion ?? <span className="text-amber-700">A confirmar</span>}
-                  </td>
+                  <td className="px-4 py-2 text-slate-600">{b.descripcion}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{pesos(b.total)}</td>
                 </tr>
               ))}

@@ -39,6 +39,7 @@ export interface FilaReporteF931 {
   remuneracionTotal: number;
   remuneracion1: number;
   remuneracion2: number;
+  /** No se usa en ningún cálculo; se guarda si viene en el reporte (0 si no viene). */
   remuneracion3: number;
   remuneracion4: number;
   remuneracion5: number;
@@ -85,6 +86,9 @@ function claveEncabezado(texto: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** Columnas que pueden faltar en el reporte (se toman como 0). */
+const COLUMNAS_OPCIONALES: CampoReporte[] = ['remuneracion3'];
 
 const CAMPOS_TEXTO: CampoReporte[] = ['legajo', 'nombre', 'cuil', 'modalidadContratacion', 'condicion', 'convenio'];
 
@@ -157,7 +161,9 @@ export function parsearReporteF931(texto: string): ResultadoLecturaReporteF931 {
   const faltantes: string[] = [];
   for (const [encabezado, campo] of COLUMNAS_REPORTE) {
     const posicion = encabezados.indexOf(claveEncabezado(encabezado));
-    if (posicion < 0) faltantes.push(encabezado);
+    if (posicion < 0) {
+      if (!COLUMNAS_OPCIONALES.includes(campo)) faltantes.push(encabezado);
+    }
     else posiciones.set(campo, posicion);
   }
   if (faltantes.length > 0) {
@@ -172,7 +178,10 @@ export function parsearReporteF931(texto: string): ResultadoLecturaReporteF931 {
     if (lineas[i].trim() === '') continue;
     const numeroLinea = i + 1;
     const celdas = lineas[i].split(';');
-    const celda = (campo: CampoReporte) => (celdas[posiciones.get(campo)!] ?? '').trim();
+    const celda = (campo: CampoReporte) => {
+      const posicion = posiciones.get(campo);
+      return posicion === undefined ? '' : (celdas[posicion] ?? '').trim();
+    };
 
     const periodo = parsearPeriodoF931(celda('periodo'));
     if (!periodo) {
@@ -217,18 +226,16 @@ export function parsearReporteF931(texto: string): ResultadoLecturaReporteF931 {
 export type BaseF931 =
   | 'remuneracion1'
   | 'remuneracion2'
-  | 'remuneracion3'
   | 'remuneracion4'
   | 'remuneracion5'
   | 'remuneracion8'
   | 'remuneracion9'
   | 'remuneracion10';
 
-/** Qué representa cada base del reporte. `null` = sin confirmar. */
-export const DESCRIPCION_BASES_F931: Record<BaseF931, string | null> = {
+/** Qué representa cada base del reporte. */
+export const DESCRIPCION_BASES_F931: Record<BaseF931, string> = {
   remuneracion1: 'Aportes SIPA',
   remuneracion2: 'Contribuciones SIPA',
-  remuneracion3: null,
   remuneracion4: 'Aportes Obra Social y FSR',
   remuneracion5: 'Aportes INSSJP',
   remuneracion8: 'Contribuciones Obra Social y FSR',
@@ -239,7 +246,6 @@ export const DESCRIPCION_BASES_F931: Record<BaseF931, string | null> = {
 const ETIQUETA_BASE: Record<BaseF931, string> = {
   remuneracion1: 'Rem. 1',
   remuneracion2: 'Rem. 2',
-  remuneracion3: 'Rem. 3',
   remuneracion4: 'Rem. 4',
   remuneracion5: 'Rem. 5',
   remuneracion8: 'Rem. 8',
@@ -301,7 +307,7 @@ export interface ResultadoControlF931 {
     alicuotaSUSSTotal: number;
     montoDetraccionCliente: number;
   };
-  bases: { base: BaseF931; etiqueta: string; descripcion: string | null; total: number }[];
+  bases: { base: BaseF931; etiqueta: string; descripcion: string; total: number }[];
   contribuciones: ConceptoF931[];
   aportes: ConceptoF931[];
   observaciones: ObservacionF931[];
@@ -311,7 +317,6 @@ export interface ResultadoControlF931 {
 const BASES: BaseF931[] = [
   'remuneracion1',
   'remuneracion2',
-  'remuneracion3',
   'remuneracion4',
   'remuneracion5',
   'remuneracion8',

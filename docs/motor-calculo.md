@@ -444,7 +444,7 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 - `GET /clientes/:clienteId/nomina-mensual/reportes-f931`: períodos importados.
 - `GET /clientes/:clienteId/nomina-mensual/control-de-leyes?periodo=AAAA-MM`: panel calculado.
 
-**Formato del reporte.** CSV separado por `;`, en Windows-1252 o UTF-8, un renglón por empleado con las columnas `Período; Empleado (legajo); Apellido y Nombre; CUIL; Contrato; Condición SIJP; Convenio Colectivo; Remuneración Total; Remuneración 1, 2, 3, 4, 5, 8, 9, 10; Monto a detraer; Monto a detraer SAC; Total Importe a detraer`. Montos con formato argentino (`15.810.040,15`); período `sept-26`, `09/2026` o `2026-09`. Los renglones con error se informan y no frenan el resto.
+**Formato del reporte.** CSV separado por `;`, en Windows-1252 o UTF-8, un renglón por empleado con las columnas `Período; Empleado (legajo); Apellido y Nombre; CUIL; Contrato; Condición SIJP; Convenio Colectivo; Remuneración Total; Remuneración 1, 2, 3 (opcional), 4, 5, 8, 9, 10; Monto a detraer; Monto a detraer SAC; Total Importe a detraer`. Montos con formato argentino (`15.810.040,15`); período `sept-26`, `09/2026` o `2026-09`. Los renglones con error se informan y no frenan el resto.
 
 **Contribuciones** (alícuotas de *Datos del cliente → Cargas sociales*, §10, aplicadas sobre las bases del reporte, por empleado):
 
@@ -466,7 +466,7 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 | Obra Social | Rem. 4 | 2,55 % (85 % del 3 %) |
 | Fondo Solidario de Redistribución (FSR) | Rem. 4 | 0,45 % (15 % del 3 %) |
 
-Rem. 3 queda sin asignar a ningún concepto hasta confirmar qué representa.
+Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no se muestra en el panel, y el reporte se importa aunque no la traiga.
 
 **Observaciones del control:** pasantes (contrato 27) sin aporte SIPA aunque el reporte informe Rem. 1; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero.
 

@@ -283,7 +283,6 @@ export interface ResultadoImportacionReporteF931 {
 export type BaseF931 =
   | 'remuneracion1'
   | 'remuneracion2'
-  | 'remuneracion3'
   | 'remuneracion4'
   | 'remuneracion5'
   | 'remuneracion8'
@@ -312,7 +311,7 @@ export interface ControlF931 {
     alicuotaSUSSTotal: number;
     montoDetraccionCliente: number;
   };
-  bases: { base: BaseF931; etiqueta: string; descripcion: string | null; total: number }[];
+  bases: { base: BaseF931; etiqueta: string; descripcion: string; total: number }[];
   contribuciones: ConceptoF931[];
   aportes: ConceptoF931[];
   observaciones: {

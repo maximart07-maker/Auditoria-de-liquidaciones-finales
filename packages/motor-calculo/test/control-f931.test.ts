@@ -59,6 +59,17 @@ describe('parsearReporteF931', () => {
     expect(parsearReporteF931(roto).filas).toHaveLength(4);
   });
 
+  it('importa aunque falte la Remuneración 3, que no se usa', () => {
+    const sinRem3 = REPORTE.split('\r\n')
+      .map((l) => l.split(';').filter((_, i) => i !== 10).join(';'))
+      .join('\r\n');
+    const r = parsearReporteF931(sinRem3);
+    expect(r.errores).toEqual([]);
+    expect(r.filas).toHaveLength(4);
+    expect(r.filas[0].remuneracion3).toBe(0);
+    expect(r.filas[0].remuneracion4).toBe(4_691_748.47);
+  });
+
   it('informa columnas faltantes', () => {
     expect(() => parsearReporteF931('Período,CUIL\nsept-26,20-1')).toThrow(ReporteF931InvalidoError);
   });
@@ -158,6 +169,12 @@ describe('calcularControlF931', () => {
   it('agrega FAL solo si el cliente lo tiene', () => {
     expect(calcularControlF931(config(), filas).contribuciones.some((c) => c.codigo === 'CONTRIB_FAL')).toBe(false);
     expect(calcularControlF931(config({ aplicaFAL: true }), filas).contribuciones.some((c) => c.codigo === 'CONTRIB_FAL')).toBe(true);
+  });
+
+  it('no muestra la Remuneración 3 entre las bases del panel', () => {
+    const r = calcularControlF931(config(), filas);
+    expect(r.bases.map((b) => b.etiqueta)).not.toContain('Rem. 3');
+    expect(r.bases).toHaveLength(7);
   });
 
   it('sin detracción toma la Rem. 2 para las contribuciones SUSS', () => {
