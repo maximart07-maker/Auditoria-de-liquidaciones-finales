@@ -110,13 +110,26 @@ describe('calcularControlF931', () => {
     expect(r.resumen.cantidadEmpleados).toBe(4);
   });
 
-  it('muestra los aportes con su base pero sin calcular', () => {
+  it('calcula los aportes: SIPA 11 % (Rem. 1), INSSJP 3 % (Rem. 5) y obra social 3 % (Rem. 4)', () => {
     const r = calcularControlF931(config(), filas);
+    const perez = r.empleados[0];
+    // Rem. 1, 4 y 5 topeadas en 4.691.748,47
+    expect(perez.aportes.APORTE_SIPA).toBe(516_092.33);
+    expect(perez.aportes.APORTE_INSSJP).toBe(140_752.45);
+    expect(perez.aportes.APORTE_OBRA_SOCIAL).toBe(140_752.45);
+    expect(perez.totalAportes).toBe(797_597.23);
+
     const sipa = r.aportes.find((a) => a.codigo === 'APORTE_SIPA')!;
     expect(sipa.baseEtiqueta).toBe('Rem. 1');
+    expect(sipa.alicuota).toBe(11);
     expect(sipa.baseTotal).toBe(Math.round((4_691_748.47 * 2 + 936_729.94 + 1_257_764.32) * 100) / 100);
-    expect(sipa.importe).toBeNull();
-    expect(sipa.pendiente).not.toBeNull();
+    expect(sipa.importe).toBe(
+      Math.round(r.empleados.reduce((a, e) => a + e.aportes.APORTE_SIPA, 0) * 100) / 100,
+    );
+    expect(r.aportes).toHaveLength(3);
+    expect(r.resumen.totalAportes).toBe(
+      Math.round(r.aportes.reduce((a, x) => a + x.importe!, 0) * 100) / 100,
+    );
   });
 
   it('agrega FAL solo si el cliente lo tiene', () => {

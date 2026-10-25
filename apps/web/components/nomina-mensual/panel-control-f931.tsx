@@ -81,13 +81,16 @@ function Seccion({ titulo, children, accion }: { titulo: string; children: React
   );
 }
 
-/** Encabezado corto para la columna de cada contribución en el detalle por empleado. */
-const COLUMNA_CONTRIBUCION: Record<string, string> = {
+/** Encabezado corto de cada concepto en el detalle por empleado. */
+const COLUMNA_CONCEPTO: Record<string, string> = {
   CONTRIB_SUSS: 'SUSS',
   CONTRIB_OBRA_SOCIAL: 'Obra social',
   CONTRIB_FAL: 'FAL',
   CONTRIB_ART: 'ART',
   CONTRIB_SCVO: 'SCVO',
+  APORTE_SIPA: 'Ap. SIPA',
+  APORTE_INSSJP: 'Ap. INSSJP',
+  APORTE_OBRA_SOCIAL: 'Ap. O. Social',
 };
 
 export function PanelControlF931({ control, clienteId }: { control: ControlF931; clienteId: string }) {
@@ -98,12 +101,8 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tarjeta titulo="Empleados" valor={resumen.cantidadEmpleados.toLocaleString('es-AR')} />
         <Tarjeta titulo="Remuneración total" valor={`$ ${pesos(resumen.remuneracionTotal)}`} />
-        <Tarjeta titulo="Total detraído" valor={`$ ${pesos(resumen.totalDetraer)}`} />
-        <Tarjeta
-          titulo="Contribuciones calculadas"
-          valor={`$ ${pesos(resumen.totalContribuciones)}`}
-          nota="Aportes pendientes de alícuota"
-        />
+        <Tarjeta titulo="Contribuciones calculadas" valor={`$ ${pesos(resumen.totalContribuciones)}`} />
+        <Tarjeta titulo="Aportes calculados" valor={`$ ${pesos(resumen.totalAportes)}`} />
       </div>
 
       <Seccion
@@ -121,10 +120,7 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
       </Seccion>
 
       <Seccion titulo="Aportes personales">
-        <p className="text-xs text-slate-500">
-          Base tomada del reporte. Las alícuotas se cargan cuando se confirmen con ARCA (Libro de Sueldos Digital).
-        </p>
-        <TablaConceptos conceptos={control.aportes} total={null} />
+        <TablaConceptos conceptos={control.aportes} total={resumen.totalAportes} />
       </Seccion>
 
       <Seccion titulo="Observaciones del control">
@@ -193,10 +189,16 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
                   <th className="px-3 py-2 text-right font-medium">Detracción</th>
                   {control.contribuciones.map((c) => (
                     <th key={c.codigo} className="px-3 py-2 text-right font-medium" title={c.descripcion}>
-                      {COLUMNA_CONTRIBUCION[c.codigo] ?? c.codigo}
+                      {COLUMNA_CONCEPTO[c.codigo] ?? c.codigo}
                     </th>
                   ))}
                   <th className="px-3 py-2 text-right font-medium">Total contrib.</th>
+                  {control.aportes.map((a) => (
+                    <th key={a.codigo} className="px-3 py-2 text-right font-medium" title={a.descripcion}>
+                      {COLUMNA_CONCEPTO[a.codigo] ?? a.codigo}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-right font-medium">Total aportes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -216,6 +218,12 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
                       </td>
                     ))}
                     <td className="px-3 py-1.5 text-right font-medium tabular-nums">{pesos(e.totalContribuciones)}</td>
+                    {control.aportes.map((a) => (
+                      <td key={a.codigo} className="px-3 py-1.5 text-right tabular-nums">
+                        {pesos(e.aportes[a.codigo])}
+                      </td>
+                    ))}
+                    <td className="px-3 py-1.5 text-right font-medium tabular-nums">{pesos(e.totalAportes)}</td>
                   </tr>
                 ))}
               </tbody>

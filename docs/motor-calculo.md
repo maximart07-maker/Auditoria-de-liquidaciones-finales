@@ -456,7 +456,15 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 | ART | Rem. 9 | % del cliente + cuota fija por empleado |
 | SCVO | — | monto fijo por empleado |
 
-**Aportes.** Se muestran con su base (SIPA → Rem. 1, INSSJP → Rem. 5, Obra Social y FSR → Rem. 4) pero **sin alícuota ni importe** hasta confirmarlas con ARCA (Libro de Sueldos Digital). Rem. 3 queda sin asignar a ningún concepto por el mismo motivo.
+**Aportes** (alícuotas de ley, `ALICUOTAS_APORTES_F931`, por empleado):
+
+| Concepto | Base | Alícuota |
+|---|---|---|
+| Jubilatorio SIPA | Rem. 1 | 11 % |
+| INSSJP (Ley 19.032) | Rem. 5 | 3 % |
+| Obra Social y FSR | Rem. 4 | 3 % (incluye la parte del FSR; falta confirmar cómo se reparte) |
+
+Rem. 3 queda sin asignar a ningún concepto hasta confirmar qué representa.
 
 **Observaciones del control:** Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero.
 

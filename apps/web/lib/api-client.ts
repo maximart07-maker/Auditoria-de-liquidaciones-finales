@@ -308,6 +308,7 @@ export interface ControlF931 {
     remuneracionTotal: number;
     totalDetraer: number;
     totalContribuciones: number;
+    totalAportes: number;
     alicuotaSUSSTotal: number;
     montoDetraccionCliente: number;
   };
@@ -332,6 +333,8 @@ export interface ControlF931 {
     totalDetraer: number;
     contribuciones: Record<string, number>;
     totalContribuciones: number;
+    aportes: Record<string, number>;
+    totalAportes: number;
   }[];
 }
 

@@ -6,8 +6,8 @@
  *    empleado, montos con formato argentino).
  * 2. `calcularControlF931` arma el panel de conceptos de seguridad social del
  *    período: las contribuciones salen de la configuración de cargas sociales
- *    del cliente aplicada sobre las bases del reporte; los aportes muestran su
- *    base, pero no se calculan hasta confirmar las alícuotas en ARCA.
+ *    del cliente aplicada sobre las bases del reporte; los aportes, con las
+ *    alícuotas de ley (`ALICUOTAS_APORTES_F931`) sobre su base.
  */
 
 import {
@@ -286,6 +286,9 @@ export interface EmpleadoControlF931 {
   /** Importe por concepto de contribución (código → importe). */
   contribuciones: Record<string, number>;
   totalContribuciones: number;
+  /** Importe por concepto de aporte (código → importe). */
+  aportes: Record<string, number>;
+  totalAportes: number;
 }
 
 export interface ResultadoControlF931 {
@@ -294,6 +297,7 @@ export interface ResultadoControlF931 {
     remuneracionTotal: number;
     totalDetraer: number;
     totalContribuciones: number;
+    totalAportes: number;
     alicuotaSUSSTotal: number;
     montoDetraccionCliente: number;
   };
@@ -319,13 +323,18 @@ const redondear = (valor: number) => Math.round(valor * 100) / 100;
 /** Tolerancia de redondeo al comparar montos del reporte. */
 const TOLERANCIA = 0.05;
 
-const PENDIENTE_APORTES = 'Alícuota a confirmar con ARCA (Libro de Sueldos Digital).';
+/** Alícuotas de aportes personales, en %. El 3 % de obra social incluye la parte del FSR (ex ANSSAL). */
+export const ALICUOTAS_APORTES_F931 = { SIPA: 11, INSSJP: 3, OBRA_SOCIAL: 3 } as const;
 
-const APORTES: { codigo: string; descripcion: string; base: BaseF931 }[] = [
-  { codigo: 'APORTE_SIPA', descripcion: 'Aporte jubilatorio SIPA', base: 'remuneracion1' },
-  { codigo: 'APORTE_INSSJP', descripcion: 'Aporte INSSJP (Ley 19.032)', base: 'remuneracion5' },
-  { codigo: 'APORTE_OBRA_SOCIAL', descripcion: 'Aporte Obra Social', base: 'remuneracion4' },
-  { codigo: 'APORTE_FSR', descripcion: 'Aporte Fondo Solidario de Redistribución (ex ANSSAL)', base: 'remuneracion4' },
+const APORTES: { codigo: string; descripcion: string; base: BaseF931; alicuota: number }[] = [
+  { codigo: 'APORTE_SIPA', descripcion: 'Aporte jubilatorio SIPA', base: 'remuneracion1', alicuota: ALICUOTAS_APORTES_F931.SIPA },
+  { codigo: 'APORTE_INSSJP', descripcion: 'Aporte INSSJP (Ley 19.032)', base: 'remuneracion5', alicuota: ALICUOTAS_APORTES_F931.INSSJP },
+  {
+    codigo: 'APORTE_OBRA_SOCIAL',
+    descripcion: 'Aporte Obra Social y FSR',
+    base: 'remuneracion4',
+    alicuota: ALICUOTAS_APORTES_F931.OBRA_SOCIAL,
+  },
 ];
 
 export function calcularControlF931(
@@ -377,6 +386,8 @@ export function calcularControlF931(
       const variable = c.base && c.alicuota !== null ? (bases[c.base] * c.alicuota) / 100 : 0;
       contribuciones[c.codigo] = redondear(variable + (c.fijo ?? 0));
     }
+    const aportes: Record<string, number> = {};
+    for (const a of APORTES) aportes[a.codigo] = redondear((bases[a.base] * a.alicuota) / 100);
     return {
       legajo: f.legajo,
       nombre: f.nombre,
@@ -389,6 +400,8 @@ export function calcularControlF931(
       totalDetraer: f.totalDetraer,
       contribuciones,
       totalContribuciones: redondear(Object.values(contribuciones).reduce((a, b) => a + b, 0)),
+      aportes,
+      totalAportes: redondear(Object.values(aportes).reduce((a, b) => a + b, 0)),
     };
   });
 
@@ -413,10 +426,10 @@ export function calcularControlF931(
     base: a.base,
     baseEtiqueta: ETIQUETA_BASE[a.base],
     baseTotal: totalBase(a.base),
-    alicuota: null,
+    alicuota: a.alicuota,
     fijoPorEmpleado: null,
-    importe: null,
-    pendiente: PENDIENTE_APORTES,
+    importe: sumar((e) => e.aportes[a.codigo]),
+    pendiente: null,
   }));
 
   return {
@@ -425,6 +438,7 @@ export function calcularControlF931(
       remuneracionTotal: sumar((e) => e.remuneracionTotal),
       totalDetraer: sumar((e) => e.totalDetraer),
       totalContribuciones: redondear(contribuciones.reduce((acc, c) => acc + (c.importe ?? 0), 0)),
+      totalAportes: redondear(aportes.reduce((acc, a) => acc + (a.importe ?? 0), 0)),
       alicuotaSUSSTotal,
       montoDetraccionCliente,
     },
