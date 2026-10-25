@@ -359,12 +359,15 @@ const CONTRIBUCION_OS = repartirObraSocialFSR(ALICUOTA_OBRA_SOCIAL);
 /** Modalidad de contratación de pasantías: no lleva aporte jubilatorio SIPA. */
 export const MODALIDAD_PASANTIA = '27';
 
-/** Modalidades de contratación excluidas de cada aporte. */
-const EXCLUSIONES_APORTES: Record<string, string[]> = {
-  APORTE_SIPA: [MODALIDAD_PASANTIA],
-};
+/** Modalidad de contratación que solo lleva ART: sin aportes ni otras contribuciones. */
+export const MODALIDAD_SOLO_ART = '99';
 
-const aplicaAporte = (codigo: string, modalidad: string) => !(EXCLUSIONES_APORTES[codigo] ?? []).includes(modalidad);
+/** Si a una modalidad de contratación le corresponde un concepto (aporte o contribución). */
+export function aplicaConceptoF931(codigo: string, modalidad: string): boolean {
+  if (modalidad === MODALIDAD_SOLO_ART) return codigo === 'CONTRIB_ART';
+  if (modalidad === MODALIDAD_PASANTIA) return codigo !== 'APORTE_SIPA';
+  return true;
+}
 
 const APORTES: { codigo: string; descripcion: string; base: BaseF931; alicuota: number }[] = [
   { codigo: 'APORTE_SIPA', descripcion: 'Aporte jubilatorio SIPA', base: 'remuneracion1', alicuota: ALICUOTAS_APORTES_F931.SIPA },
@@ -446,12 +449,16 @@ export function calcularControlF931(
     const bases = Object.fromEntries(BASES.map((b) => [b, f[b]])) as Record<BaseF931, number>;
     const contribuciones: Record<string, number> = {};
     for (const c of definicionContribuciones) {
+      if (!aplicaConceptoF931(c.codigo, f.modalidadContratacion)) {
+        contribuciones[c.codigo] = 0;
+        continue;
+      }
       const variable = c.base && c.alicuota !== null ? (bases[c.base] * c.alicuota) / 100 : 0;
       contribuciones[c.codigo] = redondear(variable + (c.fijo ?? 0));
     }
     const aportes: Record<string, number> = {};
     for (const a of APORTES) {
-      aportes[a.codigo] = aplicaAporte(a.codigo, f.modalidadContratacion)
+      aportes[a.codigo] = aplicaConceptoF931(a.codigo, f.modalidadContratacion)
         ? redondear((bases[a.base] * a.alicuota) / 100)
         : 0;
     }
@@ -474,13 +481,16 @@ export function calcularControlF931(
 
   const sumar = (fn: (e: EmpleadoControlF931) => number) => redondear(empleados.reduce((acc, e) => acc + fn(e), 0));
   const totalBase = (b: BaseF931) => sumar((e) => e.bases[b]);
+  /** Base de un concepto: solo la de los empleados a los que se les calcula. */
+  const baseDeConcepto = (codigo: string, b: BaseF931) =>
+    sumar((e) => (aplicaConceptoF931(codigo, e.modalidadContratacion) ? e.bases[b] : 0));
 
   const contribuciones: ConceptoF931[] = definicionContribuciones.map((c) => ({
     codigo: c.codigo,
     descripcion: c.descripcion,
     base: c.base,
     baseEtiqueta: c.base ? ETIQUETA_BASE[c.base] : null,
-    baseTotal: c.base ? totalBase(c.base) : null,
+    baseTotal: c.base ? baseDeConcepto(c.codigo, c.base) : null,
     alicuota: c.alicuota,
     fijoPorEmpleado: c.fijo,
     importe: sumar((e) => e.contribuciones[c.codigo]),
@@ -492,8 +502,7 @@ export function calcularControlF931(
     descripcion: a.descripcion,
     base: a.base,
     baseEtiqueta: ETIQUETA_BASE[a.base],
-    // Solo la base de los empleados a los que se les calcula el aporte.
-    baseTotal: sumar((e) => (aplicaAporte(a.codigo, e.modalidadContratacion) ? e.bases[a.base] : 0)),
+    baseTotal: baseDeConcepto(a.codigo, a.base),
     alicuota: a.alicuota,
     fijoPorEmpleado: null,
     importe: sumar((e) => e.aportes[a.codigo]),
@@ -540,6 +549,12 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
     filas.filter((f) => f.modalidadContratacion === MODALIDAD_PASANTIA && f.remuneracion1 > 0),
   );
   agregar(
+    'baja',
+    'Contrato 99: solo ART',
+    `Contrato ${MODALIDAD_SOLO_ART}: solo se calcula la ART; no se le calculan aportes ni otras contribuciones aunque el reporte informe bases.`,
+    filas.filter((f) => f.modalidadContratacion === MODALIDAD_SOLO_ART),
+  );
+  agregar(
     'alta',
     'La base con detracción no cierra',
     'Rem. 10 debería ser Rem. 2 menos el total a detraer.',
@@ -568,7 +583,14 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
       'baja',
       'Empleados sin detracción',
       'No tienen monto a detraer y su Rem. 10 viene en cero, así que no se les calculan contribuciones SUSS. Confirmar que su modalidad de contratación no lleve esas contribuciones.',
-      filas.filter((f) => f.totalDetraer === 0 && f.remuneracion10 === 0),
+      // Pasantes y contrato 99 ya tienen su propia observación.
+      filas.filter(
+        (f) =>
+          f.totalDetraer === 0 &&
+          f.remuneracion10 === 0 &&
+          f.modalidadContratacion !== MODALIDAD_PASANTIA &&
+          f.modalidadContratacion !== MODALIDAD_SOLO_ART,
+      ),
     );
   }
 

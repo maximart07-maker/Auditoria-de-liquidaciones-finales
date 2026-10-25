@@ -171,6 +171,21 @@ describe('calcularControlF931', () => {
     expect(obs.empleados.map((e) => e.legajo)).toEqual(['448']);
   });
 
+  it('al contrato 99 solo le calcula la ART', () => {
+    const director = { ...filas[0], legajo: '165', modalidadContratacion: '99', remuneracion10: 0, totalDetraer: 0, montoDetraer: 0 };
+    const r = calcularControlF931(config({ aplicaFAL: true }), [director]);
+    const e = r.empleados[0];
+    // ART: 2 % de Rem. 9 + 1.000 fijo; todo lo demás en cero
+    expect(e.contribuciones.CONTRIB_ART).toBe(317_200.8);
+    expect(e.totalContribuciones).toBe(317_200.8);
+    expect(e.totalAportes).toBe(0);
+    // Las bases de los conceptos que no le corresponden no suman su remuneración.
+    expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_OBRA_SOCIAL')!.baseTotal).toBe(0);
+    expect(r.aportes.find((c) => c.codigo === 'APORTE_INSSJP')!.baseTotal).toBe(0);
+    expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_ART')!.baseTotal).toBe(15_810_040.15);
+    expect(r.observaciones.find((o) => o.titulo === 'Contrato 99: solo ART')!.empleados.map((x) => x.legajo)).toEqual(['165']);
+  });
+
   it('agrega FAL solo si el cliente lo tiene', () => {
     expect(calcularControlF931(config(), filas).contribuciones.some((c) => c.codigo === 'CONTRIB_FAL')).toBe(false);
     const r = calcularControlF931(config({ aplicaFAL: true }), filas);
@@ -215,7 +230,8 @@ describe('calcularControlF931', () => {
     const r = calcularControlF931(config(), filas);
     const titulos = Object.fromEntries(r.observaciones.map((o) => [o.titulo, o.empleados.map((e) => e.legajo)]));
     expect(titulos['Detracción distinta a la configurada para el cliente']).toEqual(['460']);
-    expect(titulos['Empleados sin detracción']).toEqual(['448']);
+    // El 448 es pasante: tiene su propia observación.
+    expect(titulos['Empleados sin detracción']).toBeUndefined();
     expect(titulos['La base con detracción no cierra']).toBeUndefined();
   });
 

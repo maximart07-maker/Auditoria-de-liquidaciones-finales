@@ -477,6 +477,8 @@ El SUSS se desglosa por subsistema (`DESGLOSE_CONTRIBUCIONES_SUSS`, Decreto 814/
 
 Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no se muestra en el panel, y el reporte se importa aunque no la traiga.
 
-**Observaciones del control:** pasantes (contrato 27) sin aporte SIPA aunque el reporte informe Rem. 1; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero.
+**Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) no se les calcula el aporte SIPA; al contrato 99 solo se le calcula la ART (porcentaje y cuota fija), sin aportes ni otras contribuciones. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
+
+**Observaciones del control:** contrato 99 con solo ART; pasantes (contrato 27) sin aporte SIPA aunque el reporte informe Rem. 1; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
 
 Pendiente: cruce con la nómina que se descarga de Declaración en Línea.
