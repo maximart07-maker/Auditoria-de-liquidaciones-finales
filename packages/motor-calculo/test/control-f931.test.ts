@@ -122,7 +122,8 @@ describe('calcularControlF931', () => {
     const sipa = r.aportes.find((a) => a.codigo === 'APORTE_SIPA')!;
     expect(sipa.baseEtiqueta).toBe('Rem. 1');
     expect(sipa.alicuota).toBe(11);
-    expect(sipa.baseTotal).toBe(Math.round((4_691_748.47 * 2 + 936_729.94 + 1_257_764.32) * 100) / 100);
+    // Sin la Rem. 1 del pasante (contrato 27).
+    expect(sipa.baseTotal).toBe(Math.round((4_691_748.47 * 2 + 1_257_764.32) * 100) / 100);
     expect(sipa.importe).toBe(
       Math.round(r.empleados.reduce((a, e) => a + e.aportes.APORTE_SIPA, 0) * 100) / 100,
     );
@@ -130,6 +131,16 @@ describe('calcularControlF931', () => {
     expect(r.resumen.totalAportes).toBe(
       Math.round(r.aportes.reduce((a, x) => a + x.importe!, 0) * 100) / 100,
     );
+  });
+
+  it('no calcula aporte SIPA a los pasantes (contrato 27), pero sí INSSJP y obra social', () => {
+    const r = calcularControlF931(config(), filas);
+    const pasante = r.empleados.find((e) => e.modalidadContratacion === '27')!;
+    expect(pasante.aportes.APORTE_SIPA).toBe(0);
+    expect(pasante.aportes.APORTE_INSSJP).toBe(28_101.9);
+    expect(pasante.aportes.APORTE_OBRA_SOCIAL).toBe(28_101.9);
+    const obs = r.observaciones.find((o) => o.titulo === 'Pasantes sin aporte SIPA')!;
+    expect(obs.empleados.map((e) => e.legajo)).toEqual(['448']);
   });
 
   it('agrega FAL solo si el cliente lo tiene', () => {

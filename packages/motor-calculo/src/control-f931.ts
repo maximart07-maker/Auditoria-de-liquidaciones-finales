@@ -326,6 +326,16 @@ const TOLERANCIA = 0.05;
 /** Alícuotas de aportes personales, en %. El 3 % de obra social incluye la parte del FSR (ex ANSSAL). */
 export const ALICUOTAS_APORTES_F931 = { SIPA: 11, INSSJP: 3, OBRA_SOCIAL: 3 } as const;
 
+/** Modalidad de contratación de pasantías: no lleva aporte jubilatorio SIPA. */
+export const MODALIDAD_PASANTIA = '27';
+
+/** Modalidades de contratación excluidas de cada aporte. */
+const EXCLUSIONES_APORTES: Record<string, string[]> = {
+  APORTE_SIPA: [MODALIDAD_PASANTIA],
+};
+
+const aplicaAporte = (codigo: string, modalidad: string) => !(EXCLUSIONES_APORTES[codigo] ?? []).includes(modalidad);
+
 const APORTES: { codigo: string; descripcion: string; base: BaseF931; alicuota: number }[] = [
   { codigo: 'APORTE_SIPA', descripcion: 'Aporte jubilatorio SIPA', base: 'remuneracion1', alicuota: ALICUOTAS_APORTES_F931.SIPA },
   { codigo: 'APORTE_INSSJP', descripcion: 'Aporte INSSJP (Ley 19.032)', base: 'remuneracion5', alicuota: ALICUOTAS_APORTES_F931.INSSJP },
@@ -387,7 +397,11 @@ export function calcularControlF931(
       contribuciones[c.codigo] = redondear(variable + (c.fijo ?? 0));
     }
     const aportes: Record<string, number> = {};
-    for (const a of APORTES) aportes[a.codigo] = redondear((bases[a.base] * a.alicuota) / 100);
+    for (const a of APORTES) {
+      aportes[a.codigo] = aplicaAporte(a.codigo, f.modalidadContratacion)
+        ? redondear((bases[a.base] * a.alicuota) / 100)
+        : 0;
+    }
     return {
       legajo: f.legajo,
       nombre: f.nombre,
@@ -425,7 +439,8 @@ export function calcularControlF931(
     descripcion: a.descripcion,
     base: a.base,
     baseEtiqueta: ETIQUETA_BASE[a.base],
-    baseTotal: totalBase(a.base),
+    // Solo la base de los empleados a los que se les calcula el aporte.
+    baseTotal: sumar((e) => (aplicaAporte(a.codigo, e.modalidadContratacion) ? e.bases[a.base] : 0)),
     alicuota: a.alicuota,
     fijoPorEmpleado: null,
     importe: sumar((e) => e.aportes[a.codigo]),
@@ -465,6 +480,12 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
     if (alcanzadas.length > 0) observaciones.push({ severidad, titulo, detalle, empleados: alcanzadas.map(ref) });
   };
 
+  agregar(
+    'baja',
+    'Pasantes sin aporte SIPA',
+    `Contrato ${MODALIDAD_PASANTIA} (pasantías): no se les calcula el aporte jubilatorio SIPA aunque el reporte informe Rem. 1.`,
+    filas.filter((f) => f.modalidadContratacion === MODALIDAD_PASANTIA && f.remuneracion1 > 0),
+  );
   agregar(
     'alta',
     'La base con detracción no cierra',

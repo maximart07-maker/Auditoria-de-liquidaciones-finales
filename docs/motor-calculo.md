@@ -460,12 +460,12 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 
 | Concepto | Base | Alícuota |
 |---|---|---|
-| Jubilatorio SIPA | Rem. 1 | 11 % |
+| Jubilatorio SIPA | Rem. 1 | 11 % (no se calcula a los pasantes, contrato 27) |
 | INSSJP (Ley 19.032) | Rem. 5 | 3 % |
 | Obra Social y FSR | Rem. 4 | 3 % (incluye la parte del FSR; falta confirmar cómo se reparte) |
 
 Rem. 3 queda sin asignar a ningún concepto hasta confirmar qué representa.
 
-**Observaciones del control:** Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero.
+**Observaciones del control:** pasantes (contrato 27) sin aporte SIPA aunque el reporte informe Rem. 1; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero.
 
 Pendiente: cruce con la nómina que se descarga de Declaración en Línea.
