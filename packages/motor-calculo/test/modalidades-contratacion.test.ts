@@ -13,7 +13,8 @@ describe('modalidades de contratación', () => {
     expect(descripcionModalidadContratacion('008')).toBe('A tiempo completo - Indeterminado / Permanente');
     expect(descripcionModalidadContratacion('27')).toMatch(/Pasantías educativas/);
     expect(descripcionModalidadContratacion('605')).toMatch(/incentivo o formalización/);
-    expect(descripcionModalidadContratacion('99')).toBeNull();
+    expect(descripcionModalidadContratacion('099')).toMatch(/Solo riesgos del trabajo/);
+    expect(descripcionModalidadContratacion('777')).toBeNull();
   });
 
   it('aplica las reglas de pasantes y contrato 99 aunque el código venga con ceros', () => {
