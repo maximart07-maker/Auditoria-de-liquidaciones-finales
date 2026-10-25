@@ -264,6 +264,84 @@ export interface ResultadoCargasSociales {
   };
 }
 
+// --- Nómina mensual › Control de Leyes (reporte F.931) ---
+
+export interface ReporteF931Resumen {
+  /** AAAA-MM */
+  periodo: string;
+  nombreArchivo: string;
+  importadoEl: string;
+  cantidadEmpleados: number;
+}
+
+export interface ResultadoImportacionReporteF931 {
+  periodos: { periodo: string; cantidadEmpleados: number; reemplazado: boolean }[];
+  errores: string[];
+  advertencias: string[];
+}
+
+export type BaseF931 =
+  | 'remuneracion1'
+  | 'remuneracion2'
+  | 'remuneracion3'
+  | 'remuneracion4'
+  | 'remuneracion5'
+  | 'remuneracion8'
+  | 'remuneracion9'
+  | 'remuneracion10';
+
+export interface ConceptoF931 {
+  codigo: string;
+  descripcion: string;
+  base: BaseF931 | null;
+  baseEtiqueta: string | null;
+  baseTotal: number | null;
+  alicuota: number | null;
+  fijoPorEmpleado: number | null;
+  importe: number | null;
+  pendiente: string | null;
+}
+
+export interface ControlF931 {
+  resumen: {
+    cantidadEmpleados: number;
+    remuneracionTotal: number;
+    totalDetraer: number;
+    totalContribuciones: number;
+    alicuotaSUSSTotal: number;
+    montoDetraccionCliente: number;
+  };
+  bases: { base: BaseF931; etiqueta: string; descripcion: string | null; total: number }[];
+  contribuciones: ConceptoF931[];
+  aportes: ConceptoF931[];
+  observaciones: {
+    severidad: 'alta' | 'media' | 'baja';
+    titulo: string;
+    detalle: string;
+    empleados: { cuil: string; nombre: string; legajo: string }[];
+  }[];
+  empleados: {
+    legajo: string;
+    nombre: string;
+    cuil: string;
+    modalidadContratacion: string;
+    condicion: string;
+    convenio: string;
+    remuneracionTotal: number;
+    bases: Record<BaseF931, number>;
+    totalDetraer: number;
+    contribuciones: Record<string, number>;
+    totalContribuciones: number;
+  }[];
+}
+
+export interface ControlDeLeyes {
+  periodo: string;
+  nombreArchivo: string;
+  cargasSocialesConfiguradas: boolean;
+  control: ControlF931 | null;
+}
+
 export const apiClient = {
   obtenerCargasSociales: (clienteId: string) => request<CargasSocialesCliente>(`/clientes/${clienteId}/cargas-sociales`),
   guardarCargasSociales: (clienteId: string, dto: ConfiguracionCargasSociales) =>
@@ -356,5 +434,29 @@ export const apiClient = {
       throw new Error(`API ${respuesta.status} en /importaciones/conceptos: ${cuerpo}`);
     }
     return respuesta.json() as Promise<ResumenImportacionConceptos>;
+  },
+  listarReportesF931: (clienteId: string) =>
+    request<ReporteF931Resumen[]>(`/clientes/${clienteId}/nomina-mensual/reportes-f931`),
+  obtenerControlDeLeyes: (clienteId: string, periodo: string) =>
+    request<ControlDeLeyes>(`/clientes/${clienteId}/nomina-mensual/control-de-leyes?periodo=${periodo}`),
+  importarReporteF931: async (clienteId: string, archivo: File): Promise<ResultadoImportacionReporteF931> => {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    const respuesta = await fetch(`${API_URL}/clientes/${clienteId}/nomina-mensual/reportes-f931`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!respuesta.ok) {
+      const cuerpo = await respuesta.text();
+      let mensaje = cuerpo;
+      try {
+        const json = JSON.parse(cuerpo) as { message?: string | string[] };
+        if (json.message) mensaje = Array.isArray(json.message) ? json.message.join(' ') : json.message;
+      } catch {
+        // cuerpo no JSON: se muestra tal cual
+      }
+      throw new Error(mensaje);
+    }
+    return respuesta.json() as Promise<ResultadoImportacionReporteF931>;
   },
 };

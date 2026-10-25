@@ -435,3 +435,29 @@ sobrecosto %      = cargas / bruto
 ```
 
 El cálculo es por empleado y los totales de la nómina se multiplican por la cantidad: así la detracción, la cuota fija de la ART y el SCVO se aplican una vez por trabajador, como en el F.931. Los montos de detracción de la ley son los originales de la Ley 27.541; si hay un valor vigente distinto, se carga en "monto de detracción actualizado".
+
+## 11. Nómina mensual › Control de Leyes (conceptos del F.931)
+
+Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/clientes/:id/nomina-mensual/control-de-leyes`). Se importa el reporte de bases del F.931 que exporta el sistema de liquidación del cliente y la app arma el panel de conceptos de seguridad social del período. Reglas en `packages/motor-calculo/src/control-f931.ts`; API en `apps/api/src/nomina-mensual/`:
+
+- `POST /clientes/:clienteId/nomina-mensual/reportes-f931` (multipart, campo `archivo`, `.csv`): guarda un `ReporteF931` por período con un `ReporteF931Empleado` por renglón. Reimportar un período lo reemplaza.
+- `GET /clientes/:clienteId/nomina-mensual/reportes-f931`: períodos importados.
+- `GET /clientes/:clienteId/nomina-mensual/control-de-leyes?periodo=AAAA-MM`: panel calculado.
+
+**Formato del reporte.** CSV separado por `;`, en Windows-1252 o UTF-8, un renglón por empleado con las columnas `Período; Empleado (legajo); Apellido y Nombre; CUIL; Contrato; Condición SIJP; Convenio Colectivo; Remuneración Total; Remuneración 1, 2, 3, 4, 5, 8, 9, 10; Monto a detraer; Monto a detraer SAC; Total Importe a detraer`. Montos con formato argentino (`15.810.040,15`); período `sept-26`, `09/2026` o `2026-09`. Los renglones con error se informan y no frenan el resto.
+
+**Contribuciones** (alícuotas de *Datos del cliente → Cargas sociales*, §10, aplicadas sobre las bases del reporte, por empleado):
+
+| Concepto | Base | Alícuota |
+|---|---|---|
+| SUSS (SIPA, INSSJP, FNE, AAFF) | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 18 % PyME / 20,40 % gran empresa + adicional diferencial |
+| Obra Social y FSR | Rem. 8 | 6 % |
+| FAL (si aplica) | Rem. 2 | 2,5 % / 1 % |
+| ART | Rem. 9 | % del cliente + cuota fija por empleado |
+| SCVO | — | monto fijo por empleado |
+
+**Aportes.** Se muestran con su base (SIPA → Rem. 1, INSSJP → Rem. 5, Obra Social y FSR → Rem. 4) pero **sin alícuota ni importe** hasta confirmarlas con ARCA (Libro de Sueldos Digital). Rem. 3 queda sin asignar a ningún concepto por el mismo motivo.
+
+**Observaciones del control:** Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero.
+
+Pendiente: cruce con la nómina que se descarga de Declaración en Línea.

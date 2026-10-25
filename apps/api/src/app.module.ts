@@ -13,6 +13,7 @@ import { ConfiguracionesRubroModule } from './configuraciones-rubro/configuracio
 import { RemuneracionesMensualesModule } from './remuneraciones-mensuales/remuneraciones-mensuales.module';
 import { ImportacionesModule } from './importaciones/importaciones.module';
 import { CargasSocialesModule } from './cargas-sociales/cargas-sociales.module';
+import { NominaMensualModule } from './nomina-mensual/nomina-mensual.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CargasSocialesModule } from './cargas-sociales/cargas-sociales.module';
     RemuneracionesMensualesModule,
     ImportacionesModule,
     CargasSocialesModule,
+    NominaMensualModule,
   ],
 })
 export class AppModule {}

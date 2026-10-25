@@ -10,7 +10,7 @@ export default async function NominaMensualPage({ params }: { params: { clienteI
   const menus = [
     {
       titulo: 'Control de Leyes',
-      descripcion: 'Verifica que la liquidación mensual cumpla con la normativa laboral vigente.',
+      descripcion: 'Conceptos de seguridad social del F.931 a partir del reporte del sistema de liquidación.',
       href: `${base}/control-de-leyes`,
     },
   ];

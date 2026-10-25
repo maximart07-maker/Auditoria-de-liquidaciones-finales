@@ -16,3 +16,4 @@ export { calcularVacacionesNoGozadas } from './rubros/vacaciones-no-gozadas';
 export { calcularVacacionesPeriodosAnteriores } from './rubros/vacaciones-periodos-anteriores';
 export { calcularSACSobreVacaciones } from './rubros/sac-sobre-vacaciones';
 export * from './cargas-sociales';
+export * from './control-f931';
