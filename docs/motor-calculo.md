@@ -453,7 +453,7 @@ Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/client
 | SUSS | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 18 % PyME / 20,40 % gran empresa + adicional diferencial |
 | Obra Social | Rem. 8 | 5,10 % (85 % del 6 %) |
 | Fondo Solidario de Redistribución (FSR) | Rem. 8 | 0,90 % (15 % del 6 %) |
-| FAL (si aplica) | Rem. 2 | 2,5 % / 1 % |
+| FAL (si aplica) | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 2,5 % / 1 % |
 | ART | Rem. 9 | % del cliente + cuota fija por empleado |
 | SCVO | — | monto fijo por empleado |
 

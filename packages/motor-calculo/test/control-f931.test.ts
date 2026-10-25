@@ -173,7 +173,12 @@ describe('calcularControlF931', () => {
 
   it('agrega FAL solo si el cliente lo tiene', () => {
     expect(calcularControlF931(config(), filas).contribuciones.some((c) => c.codigo === 'CONTRIB_FAL')).toBe(false);
-    expect(calcularControlF931(config({ aplicaFAL: true }), filas).contribuciones.some((c) => c.codigo === 'CONTRIB_FAL')).toBe(true);
+    const r = calcularControlF931(config({ aplicaFAL: true }), filas);
+    const fal = r.contribuciones.find((c) => c.codigo === 'CONTRIB_FAL')!;
+    // Gran empresa 1 % sobre Rem. 10
+    expect(fal.baseEtiqueta).toBe('Rem. 10');
+    expect(fal.alicuota).toBe(1);
+    expect(r.empleados[0].contribuciones.CONTRIB_FAL).toBe(158_030.36);
   });
 
   it('no muestra la Remuneración 3 entre las bases del panel', () => {

@@ -409,6 +409,10 @@ export function calcularControlF931(
       ? 0
       : config.montoDetraccionPersonalizado ?? MONTO_DETRACCION_LEY[config.regimenDetraccion];
 
+  // Base de SUSS y FAL: Rem. 10 (con detracción). Sin detracción no hay base
+  // reducida, así que se toma la base de contribuciones completa (Rem. 2).
+  const baseContribuciones: BaseF931 = montoDetraccionCliente > 0 ? 'remuneracion10' : 'remuneracion2';
+
   const definicionContribuciones: {
     codigo: string;
     descripcion: string;
@@ -416,8 +420,7 @@ export function calcularControlF931(
     alicuota: number | null;
     fijo: number | null;
   }[] = [
-    // Sin detracción no hay base reducida: se toma la base de contribuciones completa.
-    ...lineasSUSS(config, montoDetraccionCliente > 0 ? 'remuneracion10' : 'remuneracion2'),
+    ...lineasSUSS(config, baseContribuciones),
     { codigo: 'CONTRIB_OBRA_SOCIAL', descripcion: 'Contribución Obra Social', base: 'remuneracion8', alicuota: CONTRIBUCION_OS.obraSocial, fijo: null },
     {
       codigo: 'CONTRIB_FSR',
@@ -427,7 +430,7 @@ export function calcularControlF931(
       fijo: null,
     },
     ...(config.aplicaFAL
-      ? [{ codigo: 'CONTRIB_FAL', descripcion: 'Fondo de Asistencia Laboral (FAL)', base: 'remuneracion2' as BaseF931, alicuota: alicuotaFAL, fijo: null }]
+      ? [{ codigo: 'CONTRIB_FAL', descripcion: 'Fondo de Asistencia Laboral (FAL)', base: baseContribuciones, alicuota: alicuotaFAL, fijo: null }]
       : []),
     {
       codigo: 'CONTRIB_ART',
