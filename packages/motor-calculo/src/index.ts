@@ -17,3 +17,4 @@ export { calcularVacacionesPeriodosAnteriores } from './rubros/vacaciones-period
 export { calcularSACSobreVacaciones } from './rubros/sac-sobre-vacaciones';
 export * from './cargas-sociales';
 export * from './control-f931';
+export * from './modalidades-contratacion';

@@ -200,6 +200,23 @@ describe('calcularControlF931', () => {
     expect(r.observaciones.find((o) => o.titulo === 'Contrato 99: solo ART')!.empleados.map((x) => x.legajo)).toEqual(['165']);
   });
 
+  it('resume los empleados por modalidad y marca los regímenes especiales sin reglas propias', () => {
+    const becario = { ...filas[1], legajo: '900', cuil: '20555555555', modalidadContratacion: '002' };
+    const director = { ...filas[0], legajo: '901', cuil: '20666666666', modalidadContratacion: '99' };
+    const r = calcularControlF931(config(), [...filas, becario, director]);
+    expect(r.modalidades.map((m) => [m.codigo, m.cantidadEmpleados])).toEqual([
+      ['8', 3],
+      ['2', 1],
+      ['27', 1],
+      ['99', 1],
+    ]);
+    expect(r.modalidades[0].descripcion).toBe('A tiempo completo - Indeterminado / Permanente');
+    expect(r.modalidades.find((m) => m.codigo === '27')!.tratamiento).toMatch(/^Sin aportes/);
+    const titulos = Object.fromEntries(r.observaciones.map((o) => [o.titulo, o.empleados.map((e) => e.legajo)]));
+    expect(titulos['Régimen especial calculado como régimen general']).toEqual(['900']);
+    expect(titulos['Modalidad de contratación fuera del catálogo']).toEqual(['901']);
+  });
+
   it('agrega FAL solo si el cliente lo tiene', () => {
     expect(calcularControlF931(config(), filas).contribuciones.some((c) => c.codigo === 'CONTRIB_FAL')).toBe(false);
     const r = calcularControlF931(config({ aplicaFAL: true }), filas);

@@ -320,11 +320,13 @@ export interface ControlF931 {
     detalle: string;
     empleados: { cuil: string; nombre: string; legajo: string }[];
   }[];
+  modalidades: { codigo: string; descripcion: string | null; cantidadEmpleados: number; tratamiento: string }[];
   empleados: {
     legajo: string;
     nombre: string;
     cuil: string;
     modalidadContratacion: string;
+    modalidadDescripcion: string | null;
     condicion: string;
     convenio: string;
     remuneracionTotal: number;

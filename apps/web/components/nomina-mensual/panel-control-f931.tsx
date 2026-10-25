@@ -150,6 +150,33 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
         )}
       </Seccion>
 
+      <Seccion titulo="Empleados por modalidad de contratación">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">Código</th>
+                <th className="px-4 py-2 font-medium">Modalidad</th>
+                <th className="px-4 py-2 text-right font-medium">Empleados</th>
+                <th className="px-4 py-2 font-medium">Qué se calcula</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {control.modalidades.map((m) => (
+                <tr key={m.codigo}>
+                  <td className="px-4 py-2 font-medium tabular-nums">{m.codigo}</td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {m.descripcion ?? <span className="text-amber-700">Fuera del catálogo</span>}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums">{m.cantidadEmpleados.toLocaleString('es-AR')}</td>
+                  <td className="px-4 py-2 text-slate-600">{m.tratamiento}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Seccion>
+
       <Seccion titulo="Bases imponibles del reporte">
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
@@ -210,7 +237,12 @@ export function PanelControlF931({ control, clienteId }: { control: ControlF931;
                     <td className="px-3 py-1.5">{e.legajo}</td>
                     <td className="px-3 py-1.5">{e.nombre}</td>
                     <td className="px-3 py-1.5 tabular-nums">{e.cuil}</td>
-                    <td className="px-3 py-1.5">{e.modalidadContratacion}</td>
+                    <td className="px-3 py-1.5" title={e.modalidadDescripcion ?? 'Fuera del catálogo'}>
+                      {e.modalidadContratacion}
+                      {e.modalidadDescripcion && (
+                        <span className="ml-1 text-slate-400">· {e.modalidadDescripcion.split(' - ')[0].split(' (')[0]}</span>
+                      )}
+                    </td>
                     <td className="px-3 py-1.5 text-right tabular-nums">{pesos(e.remuneracionTotal)}</td>
                     <td className="px-3 py-1.5 text-right tabular-nums">{pesos(e.bases.remuneracion1)}</td>
                     <td className="px-3 py-1.5 text-right tabular-nums">{pesos(e.bases.remuneracion10)}</td>

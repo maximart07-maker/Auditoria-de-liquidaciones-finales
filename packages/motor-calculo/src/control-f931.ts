@@ -19,6 +19,7 @@ import {
   MONTO_DETRACCION_LEY,
   validarConfiguracionCargasSociales,
 } from './cargas-sociales';
+import { descripcionModalidadContratacion, normalizarCodigoModalidad } from './modalidades-contratacion';
 
 // ---------------------------------------------------------------------------
 // Lectura del reporte
@@ -213,6 +214,7 @@ export function parsearReporteF931(texto: string): ResultadoLecturaReporteF931 {
     }
     if (!valida) continue;
     fila.cuil = cuil;
+    fila.modalidadContratacion = normalizarCodigoModalidad(fila.modalidadContratacion!);
     fila.nombre = fila.nombre!.replace(/\s+,/g, ',').replace(/\s+/g, ' ');
     filas.push(fila as FilaReporteF931);
   }
@@ -285,6 +287,8 @@ export interface EmpleadoControlF931 {
   nombre: string;
   cuil: string;
   modalidadContratacion: string;
+  /** Descripción del código según el catálogo; null si no está. */
+  modalidadDescripcion: string | null;
   condicion: string;
   convenio: string;
   remuneracionTotal: number;
@@ -312,6 +316,8 @@ export interface ResultadoControlF931 {
   contribuciones: ConceptoF931[];
   aportes: ConceptoF931[];
   observaciones: ObservacionF931[];
+  /** Empleados por modalidad de contratación, de la más numerosa a la menos. */
+  modalidades: ModalidadControlF931[];
   empleados: EmpleadoControlF931[];
 }
 
@@ -366,7 +372,8 @@ export const MODALIDAD_SOLO_ART = '99';
 const CONCEPTOS_PASANTIA = ['CONTRIB_OBRA_SOCIAL', 'CONTRIB_FSR', 'CONTRIB_ART', 'CONTRIB_SCVO'];
 
 /** Si a una modalidad de contratación le corresponde un concepto (aporte o contribución). */
-export function aplicaConceptoF931(codigo: string, modalidad: string): boolean {
+export function aplicaConceptoF931(codigo: string, modalidadInformada: string): boolean {
+  const modalidad = normalizarCodigoModalidad(modalidadInformada);
   if (modalidad === MODALIDAD_SOLO_ART) return codigo === 'CONTRIB_ART';
   if (modalidad === MODALIDAD_PASANTIA) return CONCEPTOS_PASANTIA.includes(codigo);
   return true;
@@ -402,11 +409,33 @@ function lineasSUSS(config: ConfiguracionCargasSociales, base: BaseF931) {
   ];
 }
 
+/** Modalidades del régimen general de la LCT: llevan todos los aportes y contribuciones. */
+const MODALIDADES_REGIMEN_GENERAL = ['1', '8', '11', '12', '21', '22'];
+
+/** Qué se le calcula a cada modalidad de contratación. */
+export function tratamientoModalidad(codigo: string): string {
+  const c = normalizarCodigoModalidad(codigo);
+  if (c === MODALIDAD_PASANTIA) return 'Sin aportes. Contribuciones: obra social (con FSR), ART y SCVO.';
+  if (c === MODALIDAD_SOLO_ART) return 'Solo ART.';
+  return 'Régimen general: todos los aportes y contribuciones.';
+}
+
+export interface ModalidadControlF931 {
+  codigo: string;
+  descripcion: string | null;
+  cantidadEmpleados: number;
+  tratamiento: string;
+}
+
 export function calcularControlF931(
   config: ConfiguracionCargasSociales,
-  filas: FilaReporteF931[],
+  filasInformadas: FilaReporteF931[],
 ): ResultadoControlF931 {
   validarConfiguracionCargasSociales(config);
+  const filas = filasInformadas.map((f) => ({
+    ...f,
+    modalidadContratacion: normalizarCodigoModalidad(f.modalidadContratacion),
+  }));
 
   const alicuotaSUSSTotal = redondear(ALICUOTA_SUSS_BASE[config.tipoEmpleador] + config.adicionalDiferencialPorcentaje);
   const alicuotaFAL = config.aplicaFAL ? ALICUOTA_FAL[config.tipoEmpleador] : 0;
@@ -470,6 +499,7 @@ export function calcularControlF931(
       nombre: f.nombre,
       cuil: f.cuil,
       modalidadContratacion: f.modalidadContratacion,
+      modalidadDescripcion: descripcionModalidadContratacion(f.modalidadContratacion),
       condicion: f.condicion,
       convenio: f.convenio,
       remuneracionTotal: f.remuneracionTotal,
@@ -526,8 +556,22 @@ export function calcularControlF931(
     contribuciones,
     aportes,
     observaciones: observacionesF931(filas, montoDetraccionCliente),
+    modalidades: resumirModalidades(filas),
     empleados,
   };
+}
+
+function resumirModalidades(filas: FilaReporteF931[]): ModalidadControlF931[] {
+  const cantidades = new Map<string, number>();
+  for (const f of filas) cantidades.set(f.modalidadContratacion, (cantidades.get(f.modalidadContratacion) ?? 0) + 1);
+  return [...cantidades]
+    .map(([codigo, cantidadEmpleados]) => ({
+      codigo,
+      descripcion: descripcionModalidadContratacion(codigo),
+      cantidadEmpleados,
+      tratamiento: tratamientoModalidad(codigo),
+    }))
+    .sort((a, b) => b.cantidadEmpleados - a.cantidadEmpleados || Number(a.codigo) - Number(b.codigo));
 }
 
 /** Controles de consistencia del reporte contra sí mismo y contra la configuración del cliente. */
@@ -556,6 +600,24 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
     'Contrato 99: solo ART',
     `Contrato ${MODALIDAD_SOLO_ART}: solo se calcula la ART; no se le calculan aportes ni otras contribuciones aunque el reporte informe bases.`,
     filas.filter((f) => f.modalidadContratacion === MODALIDAD_SOLO_ART),
+  );
+  agregar(
+    'media',
+    'Régimen especial calculado como régimen general',
+    'Su modalidad de contratación es un régimen especial (pasantías, becas, discapacidad, programas de empleo, etc.) que todavía no tiene reglas propias en la app: se le calcularon todos los aportes y contribuciones. Revisar si corresponde.',
+    filas.filter(
+      (f) =>
+        descripcionModalidadContratacion(f.modalidadContratacion) !== null &&
+        !MODALIDADES_REGIMEN_GENERAL.includes(f.modalidadContratacion) &&
+        f.modalidadContratacion !== MODALIDAD_PASANTIA &&
+        f.modalidadContratacion !== MODALIDAD_SOLO_ART,
+    ),
+  );
+  agregar(
+    'baja',
+    'Modalidad de contratación fuera del catálogo',
+    'El código de modalidad de contratación no está en el catálogo de la app: se muestra sin descripción.',
+    filas.filter((f) => descripcionModalidadContratacion(f.modalidadContratacion) === null),
   );
   agregar(
     'alta',
@@ -597,5 +659,6 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
     );
   }
 
-  return observaciones;
+  const orden: Record<SeveridadObservacionF931, number> = { alta: 0, media: 1, baja: 2 };
+  return observaciones.sort((a, b) => orden[a.severidad] - orden[b.severidad]);
 }

@@ -479,6 +479,8 @@ Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no 
 
 **Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) no se les calculan aportes y de las contribuciones solo llevan obra social (con su parte FSR), ART y SCVO; al contrato 99 solo se le calcula la ART (porcentaje y cuota fija), sin aportes ni otras contribuciones. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
 
-**Observaciones del control:** contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
+**Modalidades de contratación** (`packages/motor-calculo/src/modalidades-contratacion.ts`): el código se lee sin ceros a la izquierda (`027` = `27`) y se describe con el catálogo de códigos de ARCA del estudio (rango 601 a 614: programas de incentivo). El panel muestra los empleados por modalidad y qué se le calcula a cada una. Solo 27 y 99 tienen reglas propias; el resto se calcula como régimen general.
+
+**Observaciones del control:** régimen especial del catálogo calculado como régimen general; código fuera del catálogo; contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
 
 Pendiente: cruce con la nómina que se descarga de Declaración en Línea.
