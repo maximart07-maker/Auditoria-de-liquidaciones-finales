@@ -110,6 +110,7 @@ model Cliente {
   conceptos            ConceptoCliente[]
   cargasSociales       ConfiguracionCargasSocialesCliente?
   reportesF931         ReporteF931[]
+  nominasDDJJ          NominaDDJJ[]
 
   @@map("cliente")
 }
@@ -485,4 +486,39 @@ model ReporteF931Empleado {
 
   @@unique([reporteId, cuil])
   @@map("reporte_f931_empleado")
+}
+
+/// Nómina mensual › Control de Leyes: nómina descargada de Declaración en Línea
+/// (F.931 presentado), una por período (reimportar reemplaza). Se cruza por
+/// CUIL contra el ReporteF931 del mismo período. Ver docs/motor-calculo.md §11.
+model NominaDDJJ {
+  id            String   @id @default(uuid())
+  clienteId     String   @map("cliente_id")
+  /// Primer día del mes del período.
+  periodo       DateTime @db.Date
+  cuit          String?
+  secuencia     String?
+  nombreArchivo String   @map("nombre_archivo")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cliente   Cliente              @relation(fields: [clienteId], references: [id])
+  empleados NominaDDJJEmpleado[]
+
+  @@unique([clienteId, periodo])
+  @@map("nomina_ddjj")
+}
+
+/// Un renglón de la nómina de Declaración en Línea. `datos` guarda la fila
+/// leída (FilaNominaDDJJ de @audit/motor-calculo: bases, modalidad e importes).
+model NominaDDJJEmpleado {
+  id       String @id @default(uuid())
+  nominaId String @map("nomina_id")
+  cuil     String
+  nombre   String
+  datos    Json
+
+  nomina NominaDDJJ @relation(fields: [nominaId], references: [id], onDelete: Cascade)
+
+  @@unique([nominaId, cuil])
+  @@map("nomina_ddjj_empleado")
 }

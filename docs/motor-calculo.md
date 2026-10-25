@@ -483,4 +483,19 @@ Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no 
 
 **Observaciones del control:** régimen especial del catálogo calculado como régimen general; código fuera del catálogo; contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
 
-Pendiente: cruce con la nómina que se descarga de Declaración en Línea.
+### Cruce con Declaración en Línea
+
+Se importa la nómina que se descarga de Declaración en Línea (F.931 presentado) y se cruza por CUIL con el reporte del mismo período (`packages/motor-calculo/src/cruce-ddjj.ts`; API `POST|GET /clientes/:clienteId/nomina-mensual/nominas-ddjj`, y el cruce viene en `control-de-leyes`). Se guarda una `NominaDDJJ` por período (reimportar reemplaza); si el CUIT del archivo no es el del cliente, se rechaza.
+
+**Formato.** CSV con `;` en Windows-1252: unas líneas de cabecera (`CUIT:`, `Período;MM AAAA`, `Secuencia:`, `Contribuyente:`) y luego la fila de títulos que empieza con `CUIL` y un renglón por CUIL.
+
+**Qué se compara, por CUIL** (tolerancia de un centavo):
+
+| Tipo | Sistema / App | DDJJ |
+|---|---|---|
+| Presencia | CUIL en el reporte | CUIL en la DDJJ |
+| Modalidad | `Contrato` del reporte | `Modalidad de Contrato` |
+| Base | Remuneración Total, Rem. 1, 2, 4, 5, 8, 9, 10 y total a detraer del reporte | mismas columnas e `Importe a detraer` |
+| Importe | aportes y contribuciones calculados por la app | Contribución Previsional / PAMI / Fondo Nac. de Empleo / Asig. Familiares / OS / ANSSAL; Aporte Previsional / PAMI / OS / ANSSAL |
+
+Las diferencias de Remuneración Total de menos de $1 que están solo en los conceptos no remunerativos de la DDJJ (la parte remunerativa coincide con Rem. 2) se cuentan como redondeo y no se listan.

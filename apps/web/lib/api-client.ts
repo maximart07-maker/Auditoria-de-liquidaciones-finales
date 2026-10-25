@@ -339,11 +339,37 @@ export interface ControlF931 {
   }[];
 }
 
+export interface DiferenciaDDJJ {
+  grupo: 'presencia' | 'modalidad' | 'base' | 'importe';
+  concepto: string;
+  valorSistema: number | string | null;
+  valorDDJJ: number | string | null;
+  diferencia: number | null;
+  detalle?: string;
+}
+
+export interface CruceDDJJ {
+  resumen: {
+    empleadosReporte: number;
+    empleadosDDJJ: number;
+    sinDiferencias: number;
+    conDiferencias: number;
+    soloEnReporte: number;
+    soloEnDDJJ: number;
+    remuneracionTotalPorRedondeo: number;
+  };
+  totalesImportes: { codigo: string; concepto: string; app: number; ddjj: number; diferencia: number }[];
+  empleados: { cuil: string; nombre: string; legajo: string | null; diferencias: DiferenciaDDJJ[] }[];
+}
+
 export interface ControlDeLeyes {
   periodo: string;
   nombreArchivo: string;
   cargasSocialesConfiguradas: boolean;
   control: ControlF931 | null;
+  /** Nómina de Declaración en Línea del mismo período, si se importó. */
+  ddjj: { nombreArchivo: string; secuencia: string | null; cantidadEmpleados: number } | null;
+  cruce: CruceDDJJ | null;
 }
 
 export const apiClient = {
@@ -443,24 +469,30 @@ export const apiClient = {
     request<ReporteF931Resumen[]>(`/clientes/${clienteId}/nomina-mensual/reportes-f931`),
   obtenerControlDeLeyes: (clienteId: string, periodo: string) =>
     request<ControlDeLeyes>(`/clientes/${clienteId}/nomina-mensual/control-de-leyes?periodo=${periodo}`),
-  importarReporteF931: async (clienteId: string, archivo: File): Promise<ResultadoImportacionReporteF931> => {
-    const formData = new FormData();
-    formData.append('archivo', archivo);
-    const respuesta = await fetch(`${API_URL}/clientes/${clienteId}/nomina-mensual/reportes-f931`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (!respuesta.ok) {
-      const cuerpo = await respuesta.text();
-      let mensaje = cuerpo;
-      try {
-        const json = JSON.parse(cuerpo) as { message?: string | string[] };
-        if (json.message) mensaje = Array.isArray(json.message) ? json.message.join(' ') : json.message;
-      } catch {
-        // cuerpo no JSON: se muestra tal cual
-      }
-      throw new Error(mensaje);
-    }
-    return respuesta.json() as Promise<ResultadoImportacionReporteF931>;
-  },
+  importarReporteF931: (clienteId: string, archivo: File) =>
+    subirCsvNominaMensual(`/clientes/${clienteId}/nomina-mensual/reportes-f931`, archivo),
+  importarNominaDDJJ: (clienteId: string, archivo: File) =>
+    subirCsvNominaMensual(`/clientes/${clienteId}/nomina-mensual/nominas-ddjj`, archivo),
 };
+
+/** Sube un CSV del módulo Nómina mensual y devuelve el mensaje de error de la API tal cual. */
+async function subirCsvNominaMensual(ruta: string, archivo: File): Promise<ResultadoImportacionReporteF931> {
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+  const respuesta = await fetch(`${API_URL}${ruta}`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.text();
+    let mensaje = cuerpo;
+    try {
+      const json = JSON.parse(cuerpo) as { message?: string | string[] };
+      if (json.message) mensaje = Array.isArray(json.message) ? json.message.join(' ') : json.message;
+    } catch {
+      // cuerpo no JSON: se muestra tal cual
+    }
+    throw new Error(mensaje);
+  }
+  return respuesta.json() as Promise<ResultadoImportacionReporteF931>;
+}

@@ -1,11 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   calcularControlF931,
+  cruzarConDDJJ,
+  FilaNominaDDJJ,
   FilaReporteF931,
+  NominaDDJJInvalidaError,
+  parsearNominaDDJJ,
   parsearReporteF931,
   ReporteF931InvalidoError,
 } from '@audit/motor-calculo';
-import { ReporteF931Empleado } from '@prisma/client';
+import { Prisma, ReporteF931Empleado } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CargasSocialesService } from '../cargas-sociales/cargas-sociales.service';
 
@@ -92,6 +96,84 @@ export class NominaMensualService {
     return { periodos, errores: lectura.errores, advertencias };
   }
 
+  async listarNominasDDJJ(clienteId: string) {
+    await this.asegurarCliente(clienteId);
+    const nominas = await this.prisma.nominaDDJJ.findMany({
+      where: { clienteId },
+      orderBy: { periodo: 'desc' },
+      include: { _count: { select: { empleados: true } } },
+    });
+    return nominas.map((n) => ({
+      periodo: aPeriodoTexto(n.periodo),
+      nombreArchivo: n.nombreArchivo,
+      secuencia: n.secuencia,
+      importadoEl: n.createdAt,
+      cantidadEmpleados: n._count.empleados,
+    }));
+  }
+
+  /** Guarda la nómina de Declaración en Línea de un período; si ya estaba importada, la reemplaza. */
+  async importarNominaDDJJ(clienteId: string, nombreArchivo: string, buffer: Buffer) {
+    const cliente = await this.asegurarCliente(clienteId);
+    let nomina: ReturnType<typeof parsearNominaDDJJ>;
+    try {
+      nomina = parsearNominaDDJJ(decodificar(buffer));
+    } catch (error) {
+      if (error instanceof NominaDDJJInvalidaError) throw new BadRequestException(error.message);
+      throw error;
+    }
+    if (nomina.filas.length === 0) {
+      throw new BadRequestException(['La nómina no tiene empleados válidos.', ...nomina.errores].join(' '));
+    }
+    const cuitCliente = cliente.cuit.replace(/\D/g, '');
+    if (nomina.cuit && nomina.cuit !== cuitCliente) {
+      throw new BadRequestException(
+        `La nómina es del CUIT ${nomina.cuit} (${nomina.contribuyente ?? 'sin nombre'}) y el cliente tiene CUIT ${cuitCliente}.`,
+      );
+    }
+
+    const advertencias: string[] = [];
+    const filas = new Map<string, FilaNominaDDJJ>();
+    for (const fila of nomina.filas) {
+      if (filas.has(fila.cuil)) {
+        advertencias.push(`El CUIL ${fila.cuil} (${fila.nombre}) aparece más de una vez: se tomó el primero.`);
+        continue;
+      }
+      filas.set(fila.cuil, fila);
+    }
+
+    let reemplazado = false;
+    await this.prisma.$transaction(async (tx) => {
+      const anterior = await tx.nominaDDJJ.findUnique({ where: { clienteId_periodo: { clienteId, periodo: nomina.periodo } } });
+      if (anterior) {
+        reemplazado = true;
+        await tx.nominaDDJJ.delete({ where: { id: anterior.id } });
+      }
+      await tx.nominaDDJJ.create({
+        data: {
+          clienteId,
+          periodo: nomina.periodo,
+          cuit: nomina.cuit,
+          secuencia: nomina.secuencia,
+          nombreArchivo,
+          empleados: {
+            create: [...filas.values()].map((f) => ({
+              cuil: f.cuil,
+              nombre: f.nombre,
+              datos: f as unknown as Prisma.InputJsonValue,
+            })),
+          },
+        },
+      });
+    });
+
+    return {
+      periodos: [{ periodo: aPeriodoTexto(nomina.periodo), cantidadEmpleados: filas.size, reemplazado }],
+      errores: nomina.errores,
+      advertencias,
+    };
+  }
+
   async controlDeLeyes(clienteId: string, periodo: string) {
     await this.asegurarCliente(clienteId);
     const reporte = await this.prisma.reporteF931.findUnique({
@@ -100,16 +182,24 @@ export class NominaMensualService {
     });
     if (!reporte) throw new NotFoundException(`No hay reporte F.931 importado para ${periodo}`);
 
+    const nominaDDJJ = await this.prisma.nominaDDJJ.findUnique({
+      where: { clienteId_periodo: { clienteId, periodo: reporte.periodo } },
+      include: { empleados: true },
+    });
+    const ddjj = nominaDDJJ
+      ? { nombreArchivo: nominaDDJJ.nombreArchivo, secuencia: nominaDDJJ.secuencia, cantidadEmpleados: nominaDDJJ.empleados.length }
+      : null;
+
     const { configurado, configuracion } = await this.cargasSociales.obtener(clienteId);
     if (!configurado) {
-      return { periodo, nombreArchivo: reporte.nombreArchivo, cargasSocialesConfiguradas: false, control: null };
+      return { periodo, nombreArchivo: reporte.nombreArchivo, cargasSocialesConfiguradas: false, control: null, ddjj, cruce: null };
     }
-    return {
-      periodo,
-      nombreArchivo: reporte.nombreArchivo,
-      cargasSocialesConfiguradas: true,
-      control: calcularControlF931(configuracion, reporte.empleados.map((e) => this.aFila(e, reporte.periodo))),
-    };
+    const filas = reporte.empleados.map((e) => this.aFila(e, reporte.periodo));
+    const control = calcularControlF931(configuracion, filas);
+    const cruce = nominaDDJJ
+      ? cruzarConDDJJ(filas, control, nominaDDJJ.empleados.map((e) => e.datos as unknown as FilaNominaDDJJ))
+      : null;
+    return { periodo, nombreArchivo: reporte.nombreArchivo, cargasSocialesConfiguradas: true, control, ddjj, cruce };
   }
 
   private aFila(e: ReporteF931Empleado, periodo: Date): FilaReporteF931 {
@@ -136,8 +226,9 @@ export class NominaMensualService {
     };
   }
 
-  private async asegurarCliente(clienteId: string): Promise<void> {
+  private async asegurarCliente(clienteId: string) {
     const cliente = await this.prisma.cliente.findUnique({ where: { id: clienteId } });
     if (!cliente) throw new NotFoundException(`Cliente ${clienteId} no encontrado`);
+    return cliente;
   }
 }

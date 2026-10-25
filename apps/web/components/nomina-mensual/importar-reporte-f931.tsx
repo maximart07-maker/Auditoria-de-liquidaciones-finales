@@ -4,9 +4,24 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ResultadoImportacionReporteF931, apiClient } from '@/lib/api-client';
 
-/** Importa el reporte de bases del F.931 que exporta el sistema de liquidación (CSV con ";"). */
-export function ImportarReporteF931({ clienteId }: { clienteId: string }) {
+const TEXTOS = {
+  reporte: {
+    titulo: 'Reporte del sistema de liquidación',
+    ayuda:
+      'CSV con ";": un renglón por empleado con Período, CUIL, Contrato, Remuneración Total, Remuneración 1 a 10 y montos a detraer.',
+    boton: 'Importar reporte',
+  },
+  ddjj: {
+    titulo: 'Nómina de Declaración en Línea',
+    ayuda: 'El CSV que se descarga de Declaración en Línea (F.931 presentado). Se cruza por CUIL con el reporte del mismo período.',
+    boton: 'Importar nómina DDJJ',
+  },
+} as const;
+
+/** Importa el reporte del sistema de liquidación o la nómina de Declaración en Línea (CSV con ";"). */
+export function ImportarReporteF931({ clienteId, tipo }: { clienteId: string; tipo: keyof typeof TEXTOS }) {
   const router = useRouter();
+  const textos = TEXTOS[tipo];
   const [archivo, setArchivo] = useState<File | null>(null);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImportacionReporteF931 | null>(null);
@@ -15,14 +30,17 @@ export function ImportarReporteF931({ clienteId }: { clienteId: string }) {
   async function importar(evento: FormEvent) {
     evento.preventDefault();
     if (!archivo) {
-      setError('Elegí primero el reporte (.csv) a importar.');
+      setError('Elegí primero el archivo .csv a importar.');
       return;
     }
     setImportando(true);
     setError(null);
     setResultado(null);
     try {
-      const r = await apiClient.importarReporteF931(clienteId, archivo);
+      const r =
+        tipo === 'reporte'
+          ? await apiClient.importarReporteF931(clienteId, archivo)
+          : await apiClient.importarNominaDDJJ(clienteId, archivo);
       setResultado(r);
       const ultimo = r.periodos[r.periodos.length - 1];
       if (ultimo) router.push(`/clientes/${clienteId}/nomina-mensual/control-de-leyes?periodo=${ultimo.periodo}`);
@@ -38,26 +56,21 @@ export function ImportarReporteF931({ clienteId }: { clienteId: string }) {
 
   return (
     <div className="space-y-3">
-      <form
-        onSubmit={importar}
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-slate-300 bg-white p-4"
-      >
-        <div className="min-w-0 flex-1">
-          <label className="block text-xs text-slate-500">Reporte del sistema de liquidación (.csv separado por ;)</label>
+      <form onSubmit={importar} className="space-y-2 rounded-lg border border-dashed border-slate-300 bg-white p-4">
+        <p className="text-sm font-medium text-crowe-indigo">{textos.titulo}</p>
+        <p className="text-xs text-slate-400">{textos.ayuda} Si el período ya estaba importado, se reemplaza.</p>
+        <div className="flex flex-wrap items-center gap-3">
           <input
             type="file"
             accept=".csv,.txt"
+            aria-label={textos.titulo}
             onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-            className="max-w-full text-sm"
+            className="min-w-0 max-w-full flex-1 text-sm"
           />
-          <p className="mt-1 text-xs text-slate-400">
-            Un renglón por empleado con Período, CUIL, Contrato, Condición SIJP, Remuneración Total, Remuneración 1 a 10
-            y montos a detraer. Si el período ya estaba importado, se reemplaza.
-          </p>
+          <button type="submit" disabled={importando} className="btn-primario">
+            {importando ? 'Importando…' : textos.boton}
+          </button>
         </div>
-        <button type="submit" disabled={importando} className="btn-primario">
-          {importando ? 'Importando…' : 'Importar reporte'}
-        </button>
       </form>
 
       {error && <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
