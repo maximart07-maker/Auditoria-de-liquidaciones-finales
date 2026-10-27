@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+      <body className="min-h-screen text-slate-900 antialiased">
         <header className="bg-gradient-to-r from-crowe-indigo via-crowe-indigo to-crowe-ciruela text-white">
           <div className="flex items-center justify-between gap-4 px-6 py-3">
             <Link href="/" className="font-semibold hover:text-crowe-ambar-claro">
