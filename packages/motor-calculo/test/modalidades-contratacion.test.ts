@@ -13,7 +13,9 @@ describe('modalidades de contratación', () => {
     expect(descripcionModalidadContratacion('008')).toBe('A tiempo completo - Indeterminado / Permanente');
     expect(descripcionModalidadContratacion('27')).toMatch(/Pasantías educativas/);
     expect(descripcionModalidadContratacion('605')).toMatch(/incentivo o formalización/);
-    expect(descripcionModalidadContratacion('099')).toMatch(/Solo riesgos del trabajo/);
+    expect(descripcionModalidadContratacion('099')).toBe(
+      'Socios, directores o administradores de sociedades - Sin seguridad social (solo ART y SCVO)',
+    );
     expect(descripcionModalidadContratacion('777')).toBeNull();
   });
 
