@@ -368,6 +368,19 @@ export const MODALIDAD_PASANTIA = '27';
 /** Modalidad de contratación que solo lleva ART: sin aportes ni otras contribuciones. */
 export const MODALIDAD_SOLO_ART = '99';
 
+/** Director - Empleado de S.A. con obra social y ART: sin aportes ni contribuciones de seguridad social. */
+export const MODALIDAD_DIRECTOR_SA = '49';
+
+/** Conceptos que lleva el director de S.A. (049): solo obra social y FSR, más ART y SCVO. */
+const CONCEPTOS_DIRECTOR_SA = [
+  'APORTE_OBRA_SOCIAL',
+  'APORTE_FSR',
+  'CONTRIB_OBRA_SOCIAL',
+  'CONTRIB_FSR',
+  'CONTRIB_ART',
+  'CONTRIB_SCVO',
+];
+
 /** Conceptos que llevan los pasantes (la contribución de obra social incluye su parte FSR). */
 const CONCEPTOS_PASANTIA = ['CONTRIB_OBRA_SOCIAL', 'CONTRIB_FSR', 'CONTRIB_ART', 'CONTRIB_SCVO'];
 
@@ -376,6 +389,7 @@ export function aplicaConceptoF931(codigo: string, modalidadInformada: string): 
   const modalidad = normalizarCodigoModalidad(modalidadInformada);
   if (modalidad === MODALIDAD_SOLO_ART) return codigo === 'CONTRIB_ART';
   if (modalidad === MODALIDAD_PASANTIA) return CONCEPTOS_PASANTIA.includes(codigo);
+  if (modalidad === MODALIDAD_DIRECTOR_SA) return CONCEPTOS_DIRECTOR_SA.includes(codigo);
   return true;
 }
 
@@ -417,6 +431,9 @@ export function tratamientoModalidad(codigo: string): string {
   const c = normalizarCodigoModalidad(codigo);
   if (c === MODALIDAD_PASANTIA) return 'Sin aportes. Contribuciones: obra social (con FSR), ART y SCVO.';
   if (c === MODALIDAD_SOLO_ART) return 'Solo ART.';
+  if (c === MODALIDAD_DIRECTOR_SA) {
+    return 'Aportes: solo obra social (con FSR). Contribuciones: obra social (con FSR), ART y SCVO.';
+  }
   return 'Régimen general: todos los aportes y contribuciones.';
 }
 
@@ -602,6 +619,12 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
     filas.filter((f) => f.modalidadContratacion === MODALIDAD_SOLO_ART),
   );
   agregar(
+    'baja',
+    'Contrato 49: director de S.A.',
+    `Contrato ${MODALIDAD_DIRECTOR_SA}: no se le calculan aportes ni contribuciones SIPA, INSSJP, FNE, AAFF ni FAL aunque el reporte informe bases; solo obra social (con FSR), ART y SCVO.`,
+    filas.filter((f) => f.modalidadContratacion === MODALIDAD_DIRECTOR_SA),
+  );
+  agregar(
     'media',
     'Régimen especial calculado como régimen general',
     'Su modalidad de contratación es un régimen especial (pasantías, becas, discapacidad, programas de empleo, etc.) que todavía no tiene reglas propias en la app: se le calcularon todos los aportes y contribuciones. Revisar si corresponde.',
@@ -610,7 +633,8 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
         descripcionModalidadContratacion(f.modalidadContratacion) !== null &&
         !MODALIDADES_REGIMEN_GENERAL.includes(f.modalidadContratacion) &&
         f.modalidadContratacion !== MODALIDAD_PASANTIA &&
-        f.modalidadContratacion !== MODALIDAD_SOLO_ART,
+        f.modalidadContratacion !== MODALIDAD_SOLO_ART &&
+        f.modalidadContratacion !== MODALIDAD_DIRECTOR_SA,
     ),
   );
   agregar(
@@ -654,7 +678,8 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
           f.totalDetraer === 0 &&
           f.remuneracion10 === 0 &&
           f.modalidadContratacion !== MODALIDAD_PASANTIA &&
-          f.modalidadContratacion !== MODALIDAD_SOLO_ART,
+          f.modalidadContratacion !== MODALIDAD_SOLO_ART &&
+          f.modalidadContratacion !== MODALIDAD_DIRECTOR_SA,
       ),
     );
   }

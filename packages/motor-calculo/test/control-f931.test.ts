@@ -185,6 +185,27 @@ describe('calcularControlF931', () => {
     expect(c.CONTRIB_SCVO).toBe(100);
   });
 
+  it('al director de S.A. (049) solo le calcula obra social y FSR, ART y SCVO', () => {
+    const director = { ...filas[0], legajo: '700', modalidadContratacion: '049' };
+    const r = calcularControlF931(config({ aplicaFAL: true }), [director]);
+    const e = r.empleados[0];
+    expect([e.aportes.APORTE_SIPA, e.aportes.APORTE_INSSJP]).toEqual([0, 0]);
+    // 2,55 % y 0,45 % de Rem. 4 (4.691.748,47)
+    expect(e.aportes.APORTE_OBRA_SOCIAL).toBe(119_639.59);
+    expect(e.aportes.APORTE_FSR).toBe(21_112.87);
+    const c = e.contribuciones;
+    expect([c.CONTRIB_SIPA, c.CONTRIB_INSSJP, c.CONTRIB_FNE, c.CONTRIB_AAFF, c.CONTRIB_FAL]).toEqual([0, 0, 0, 0, 0]);
+    // 5,10 % y 0,90 % de Rem. 8 (15.810.040,15); ART 2 % de Rem. 9 + 1.000; SCVO 100
+    expect(c.CONTRIB_OBRA_SOCIAL).toBe(806_312.05);
+    expect(c.CONTRIB_FSR).toBe(142_290.36);
+    expect(c.CONTRIB_ART).toBe(317_200.8);
+    expect(c.CONTRIB_SCVO).toBe(100);
+    const titulos = r.observaciones.map((o) => o.titulo);
+    expect(titulos).toContain('Contrato 49: director de S.A.');
+    expect(titulos).not.toContain('Régimen especial calculado como régimen general');
+    expect(r.modalidades[0].tratamiento).toMatch(/^Aportes: solo obra social/);
+  });
+
   it('al contrato 99 solo le calcula la ART', () => {
     const director = { ...filas[0], legajo: '165', modalidadContratacion: '99', remuneracion10: 0, totalDetraer: 0, montoDetraer: 0 };
     const r = calcularControlF931(config({ aplicaFAL: true }), [director]);
