@@ -435,3 +435,67 @@ sobrecosto %      = cargas / bruto
 ```
 
 El cálculo es por empleado y los totales de la nómina se multiplican por la cantidad: así la detracción, la cuota fija de la ART y el SCVO se aplican una vez por trabajador, como en el F.931. Los montos de detracción de la ley son los originales de la Ley 27.541; si hay un valor vigente distinto, se carga en "monto de detracción actualizado".
+
+## 11. Nómina mensual › Control de Leyes (conceptos del F.931)
+
+Menú lateral del cliente → **Nómina mensual → Control de Leyes** (`/clientes/:id/nomina-mensual/control-de-leyes`). Se importa el reporte de bases del F.931 que exporta el sistema de liquidación del cliente y la app arma el panel de conceptos de seguridad social del período. Reglas en `packages/motor-calculo/src/control-f931.ts`; API en `apps/api/src/nomina-mensual/`:
+
+- `POST /clientes/:clienteId/nomina-mensual/reportes-f931` (multipart, campo `archivo`, `.csv`): guarda un `ReporteF931` por período con un `ReporteF931Empleado` por renglón. Reimportar un período lo reemplaza.
+- `GET /clientes/:clienteId/nomina-mensual/reportes-f931`: períodos importados.
+- `GET /clientes/:clienteId/nomina-mensual/control-de-leyes?periodo=AAAA-MM`: panel calculado.
+
+**Formato del reporte.** CSV separado por `;`, en Windows-1252 o UTF-8, un renglón por empleado con las columnas `Período; Empleado (legajo); Apellido y Nombre; CUIL; Contrato; Condición SIJP; Convenio Colectivo; Remuneración Total; Remuneración 1, 2, 3 (opcional), 4, 5, 8, 9, 10; Monto a detraer; Monto a detraer SAC; Total Importe a detraer`. Montos con formato argentino (`15.810.040,15`); período `sept-26`, `09/2026` o `2026-09`. Los renglones con error se informan y no frenan el resto.
+
+**Contribuciones** (alícuotas de *Datos del cliente → Cargas sociales*, §10, aplicadas sobre las bases del reporte, por empleado):
+
+| Concepto | Base | Alícuota |
+|---|---|---|
+| SUSS | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 18 % PyME / 20,40 % gran empresa + adicional diferencial |
+| Obra Social | Rem. 8 | 5,10 % (85 % del 6 %) |
+| Fondo Solidario de Redistribución (FSR) | Rem. 8 | 0,90 % (15 % del 6 %) |
+| FAL (si aplica) | Rem. 10 (Rem. 2 si el cliente no tiene detracción) | 2,5 % / 1 % |
+| ART | Rem. 9 | % del cliente + cuota fija por empleado |
+| SCVO | — | monto fijo por empleado |
+
+El SUSS se desglosa por subsistema (`DESGLOSE_CONTRIBUCIONES_SUSS`, Decreto 814/01 y art. 19 Ley 27.541), todos sobre la misma base. El adicional del régimen diferencial se suma a SIPA:
+
+| Subsistema | Gran empresa (20,40 %) | PyME (18 %) |
+|---|---|---|
+| SIPA | 12,35 % | 10,77 % |
+| INSSJP (PAMI) | 1,80 % | 1,59 % |
+| FNE | 1,11 % | 0,94 % |
+| Asignaciones familiares | 5,14 % | 4,70 % |
+
+**Aportes** (alícuotas de ley, `ALICUOTAS_APORTES_F931`, por empleado):
+
+| Concepto | Base | Alícuota |
+|---|---|---|
+| Jubilatorio SIPA | Rem. 1 | 11 % |
+| INSSJP (Ley 19.032) | Rem. 5 | 3 % |
+| Obra Social | Rem. 4 | 2,55 % (85 % del 3 %) |
+| Fondo Solidario de Redistribución (FSR) | Rem. 4 | 0,45 % (15 % del 3 %) |
+
+Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no se muestra en el panel, y el reporte se importa aunque no la traiga.
+
+**Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) no se les calculan aportes y de las contribuciones solo llevan obra social (con su parte FSR), ART y SCVO; al contrato 99 solo se le calcula la ART (porcentaje y cuota fija), sin aportes ni otras contribuciones. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
+
+**Modalidades de contratación** (`packages/motor-calculo/src/modalidades-contratacion.ts`): el código se lee sin ceros a la izquierda (`027` = `27`) y se describe con el catálogo de códigos de ARCA del estudio (rango 601 a 614: programas de incentivo). El panel muestra los empleados por modalidad y qué se le calcula a cada una. Solo 27 y 99 tienen reglas propias; el resto se calcula como régimen general.
+
+**Observaciones del control:** régimen especial del catálogo calculado como régimen general; código fuera del catálogo; contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
+
+### Cruce con Declaración en Línea
+
+Se importa la nómina que se descarga de Declaración en Línea (F.931 presentado) y se cruza por CUIL con el reporte del mismo período (`packages/motor-calculo/src/cruce-ddjj.ts`; API `POST|GET /clientes/:clienteId/nomina-mensual/nominas-ddjj`, y el cruce viene en `control-de-leyes`). Se guarda una `NominaDDJJ` por período (reimportar reemplaza); si el CUIT del archivo no es el del cliente, se rechaza.
+
+**Formato.** CSV con `;` en Windows-1252: unas líneas de cabecera (`CUIT:`, `Período;MM AAAA`, `Secuencia:`, `Contribuyente:`) y luego la fila de títulos que empieza con `CUIL` y un renglón por CUIL.
+
+**Qué se compara, por CUIL** (tolerancia de un centavo):
+
+| Tipo | Sistema / App | DDJJ |
+|---|---|---|
+| Presencia | CUIL en el reporte | CUIL en la DDJJ |
+| Modalidad | `Contrato` del reporte | `Modalidad de Contrato` |
+| Base | Remuneración Total, Rem. 1, 2, 4, 5, 8, 9, 10 y total a detraer del reporte | mismas columnas e `Importe a detraer` |
+| Importe | aportes y contribuciones calculados por la app | Contribución Previsional / PAMI / Fondo Nac. de Empleo / Asig. Familiares / OS / ANSSAL; Aporte Previsional / PAMI / OS / ANSSAL |
+
+Las diferencias de Remuneración Total de menos de $1 que están solo en los conceptos no remunerativos de la DDJJ (la parte remunerativa coincide con Rem. 2) se cuentan como redondeo y no se listan.

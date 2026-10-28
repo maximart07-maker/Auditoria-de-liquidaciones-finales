@@ -264,6 +264,114 @@ export interface ResultadoCargasSociales {
   };
 }
 
+// --- Nómina mensual › Control de Leyes (reporte F.931) ---
+
+export interface ReporteF931Resumen {
+  /** AAAA-MM */
+  periodo: string;
+  nombreArchivo: string;
+  importadoEl: string;
+  cantidadEmpleados: number;
+}
+
+export interface ResultadoImportacionReporteF931 {
+  periodos: { periodo: string; cantidadEmpleados: number; reemplazado: boolean }[];
+  errores: string[];
+  advertencias: string[];
+}
+
+export type BaseF931 =
+  | 'remuneracion1'
+  | 'remuneracion2'
+  | 'remuneracion4'
+  | 'remuneracion5'
+  | 'remuneracion8'
+  | 'remuneracion9'
+  | 'remuneracion10';
+
+export interface ConceptoF931 {
+  codigo: string;
+  descripcion: string;
+  base: BaseF931 | null;
+  baseEtiqueta: string | null;
+  baseTotal: number | null;
+  alicuota: number | null;
+  fijoPorEmpleado: number | null;
+  importe: number | null;
+  pendiente: string | null;
+}
+
+export interface ControlF931 {
+  resumen: {
+    cantidadEmpleados: number;
+    remuneracionTotal: number;
+    totalDetraer: number;
+    totalContribuciones: number;
+    totalAportes: number;
+    alicuotaSUSSTotal: number;
+    montoDetraccionCliente: number;
+  };
+  bases: { base: BaseF931; etiqueta: string; descripcion: string; total: number }[];
+  contribuciones: ConceptoF931[];
+  aportes: ConceptoF931[];
+  observaciones: {
+    severidad: 'alta' | 'media' | 'baja';
+    titulo: string;
+    detalle: string;
+    empleados: { cuil: string; nombre: string; legajo: string }[];
+  }[];
+  modalidades: { codigo: string; descripcion: string | null; cantidadEmpleados: number; tratamiento: string }[];
+  empleados: {
+    legajo: string;
+    nombre: string;
+    cuil: string;
+    modalidadContratacion: string;
+    modalidadDescripcion: string | null;
+    condicion: string;
+    convenio: string;
+    remuneracionTotal: number;
+    bases: Record<BaseF931, number>;
+    totalDetraer: number;
+    contribuciones: Record<string, number>;
+    totalContribuciones: number;
+    aportes: Record<string, number>;
+    totalAportes: number;
+  }[];
+}
+
+export interface DiferenciaDDJJ {
+  grupo: 'presencia' | 'modalidad' | 'base' | 'importe';
+  concepto: string;
+  valorSistema: number | string | null;
+  valorDDJJ: number | string | null;
+  diferencia: number | null;
+  detalle?: string;
+}
+
+export interface CruceDDJJ {
+  resumen: {
+    empleadosReporte: number;
+    empleadosDDJJ: number;
+    sinDiferencias: number;
+    conDiferencias: number;
+    soloEnReporte: number;
+    soloEnDDJJ: number;
+    remuneracionTotalPorRedondeo: number;
+  };
+  totalesImportes: { codigo: string; concepto: string; app: number; ddjj: number; diferencia: number }[];
+  empleados: { cuil: string; nombre: string; legajo: string | null; diferencias: DiferenciaDDJJ[] }[];
+}
+
+export interface ControlDeLeyes {
+  periodo: string;
+  nombreArchivo: string;
+  cargasSocialesConfiguradas: boolean;
+  control: ControlF931 | null;
+  /** Nómina de Declaración en Línea del mismo período, si se importó. */
+  ddjj: { nombreArchivo: string; secuencia: string | null; cantidadEmpleados: number } | null;
+  cruce: CruceDDJJ | null;
+}
+
 export const apiClient = {
   obtenerCargasSociales: (clienteId: string) => request<CargasSocialesCliente>(`/clientes/${clienteId}/cargas-sociales`),
   guardarCargasSociales: (clienteId: string, dto: ConfiguracionCargasSociales) =>
@@ -357,4 +465,34 @@ export const apiClient = {
     }
     return respuesta.json() as Promise<ResumenImportacionConceptos>;
   },
+  listarReportesF931: (clienteId: string) =>
+    request<ReporteF931Resumen[]>(`/clientes/${clienteId}/nomina-mensual/reportes-f931`),
+  obtenerControlDeLeyes: (clienteId: string, periodo: string) =>
+    request<ControlDeLeyes>(`/clientes/${clienteId}/nomina-mensual/control-de-leyes?periodo=${periodo}`),
+  importarReporteF931: (clienteId: string, archivo: File) =>
+    subirCsvNominaMensual(`/clientes/${clienteId}/nomina-mensual/reportes-f931`, archivo),
+  importarNominaDDJJ: (clienteId: string, archivo: File) =>
+    subirCsvNominaMensual(`/clientes/${clienteId}/nomina-mensual/nominas-ddjj`, archivo),
 };
+
+/** Sube un CSV del módulo Nómina mensual y devuelve el mensaje de error de la API tal cual. */
+async function subirCsvNominaMensual(ruta: string, archivo: File): Promise<ResultadoImportacionReporteF931> {
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+  const respuesta = await fetch(`${API_URL}${ruta}`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.text();
+    let mensaje = cuerpo;
+    try {
+      const json = JSON.parse(cuerpo) as { message?: string | string[] };
+      if (json.message) mensaje = Array.isArray(json.message) ? json.message.join(' ') : json.message;
+    } catch {
+      // cuerpo no JSON: se muestra tal cual
+    }
+    throw new Error(mensaje);
+  }
+  return respuesta.json() as Promise<ResultadoImportacionReporteF931>;
+}

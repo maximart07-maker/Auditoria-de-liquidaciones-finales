@@ -109,6 +109,8 @@ model Cliente {
   configuracionesRubro ConfiguracionRubroCliente[]
   conceptos            ConceptoCliente[]
   cargasSociales       ConfiguracionCargasSocialesCliente?
+  reportesF931         ReporteF931[]
+  nominasDDJJ          NominaDDJJ[]
 
   @@map("cliente")
 }
@@ -437,4 +439,86 @@ model Informe {
   lote Lote? @relation(fields: [loteId], references: [id])
 
   @@map("informe")
+}
+
+/// Nómina mensual › Control de Leyes: reporte de bases del F.931 exportado del
+/// sistema de liquidación del cliente, uno por período (reimportar reemplaza).
+/// Ver docs/motor-calculo.md §11.
+model ReporteF931 {
+  id            String   @id @default(uuid())
+  clienteId     String   @map("cliente_id")
+  /// Primer día del mes del período.
+  periodo       DateTime @db.Date
+  nombreArchivo String   @map("nombre_archivo")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cliente   Cliente               @relation(fields: [clienteId], references: [id])
+  empleados ReporteF931Empleado[]
+
+  @@unique([clienteId, periodo])
+  @@map("reporte_f931")
+}
+
+/// Un renglón del reporte F.931: bases imponibles de un empleado en el período.
+model ReporteF931Empleado {
+  id                    String  @id @default(uuid())
+  reporteId             String  @map("reporte_id")
+  legajo                String
+  nombre                String
+  cuil                  String
+  modalidadContratacion String  @map("modalidad_contratacion")
+  condicion             String
+  convenio              String
+  remuneracionTotal     Decimal @map("remuneracion_total") @db.Decimal(16, 2)
+  remuneracion1         Decimal @map("remuneracion_1") @db.Decimal(16, 2)
+  remuneracion2         Decimal @map("remuneracion_2") @db.Decimal(16, 2)
+  remuneracion3         Decimal @map("remuneracion_3") @db.Decimal(16, 2)
+  remuneracion4         Decimal @map("remuneracion_4") @db.Decimal(16, 2)
+  remuneracion5         Decimal @map("remuneracion_5") @db.Decimal(16, 2)
+  remuneracion8         Decimal @map("remuneracion_8") @db.Decimal(16, 2)
+  remuneracion9         Decimal @map("remuneracion_9") @db.Decimal(16, 2)
+  remuneracion10        Decimal @map("remuneracion_10") @db.Decimal(16, 2)
+  montoDetraer          Decimal @map("monto_detraer") @db.Decimal(16, 2)
+  montoDetraerSac       Decimal @map("monto_detraer_sac") @db.Decimal(16, 2)
+  totalDetraer          Decimal @map("total_detraer") @db.Decimal(16, 2)
+
+  reporte ReporteF931 @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+
+  @@unique([reporteId, cuil])
+  @@map("reporte_f931_empleado")
+}
+
+/// Nómina mensual › Control de Leyes: nómina descargada de Declaración en Línea
+/// (F.931 presentado), una por período (reimportar reemplaza). Se cruza por
+/// CUIL contra el ReporteF931 del mismo período. Ver docs/motor-calculo.md §11.
+model NominaDDJJ {
+  id            String   @id @default(uuid())
+  clienteId     String   @map("cliente_id")
+  /// Primer día del mes del período.
+  periodo       DateTime @db.Date
+  cuit          String?
+  secuencia     String?
+  nombreArchivo String   @map("nombre_archivo")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cliente   Cliente              @relation(fields: [clienteId], references: [id])
+  empleados NominaDDJJEmpleado[]
+
+  @@unique([clienteId, periodo])
+  @@map("nomina_ddjj")
+}
+
+/// Un renglón de la nómina de Declaración en Línea. `datos` guarda la fila
+/// leída (FilaNominaDDJJ de @audit/motor-calculo: bases, modalidad e importes).
+model NominaDDJJEmpleado {
+  id       String @id @default(uuid())
+  nominaId String @map("nomina_id")
+  cuil     String
+  nombre   String
+  datos    Json
+
+  nomina NominaDDJJ @relation(fields: [nominaId], references: [id], onDelete: Cascade)
+
+  @@unique([nominaId, cuil])
+  @@map("nomina_ddjj_empleado")
 }

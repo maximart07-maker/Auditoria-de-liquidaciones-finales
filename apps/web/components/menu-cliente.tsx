@@ -11,6 +11,8 @@ interface ItemMenu {
   proximamente?: boolean;
   /** Muestra la marca "Pendiente" (dato del cliente todavía sin cargar). */
   pendiente?: boolean;
+  /** Menús internos del módulo, que se muestran debajo del ítem. */
+  subitems?: { etiqueta: string; href: string }[];
 }
 
 /** Menú lateral del cliente: datos compartidos del cliente y módulos de auditoría. */
@@ -31,7 +33,11 @@ export function MenuCliente({
       titulo: 'Módulos',
       items: [
         { etiqueta: 'Liquidaciones finales', href: base, activoSi: (r) => r === base },
-        { etiqueta: 'Nómina mensual', proximamente: true },
+        {
+          etiqueta: 'Nómina mensual',
+          href: `${base}/nomina-mensual`,
+          subitems: [{ etiqueta: 'Control de Leyes', href: `${base}/nomina-mensual/control-de-leyes` }],
+        },
       ],
     },
     {
@@ -86,6 +92,28 @@ export function MenuCliente({
                       </span>
                     )}
                   </Link>
+                  {item.subitems && (
+                    <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2">
+                      {item.subitems.map((sub) => {
+                        const subActivo = ruta.startsWith(sub.href);
+                        return (
+                          <li key={sub.etiqueta}>
+                            <Link
+                              href={sub.href}
+                              aria-current={subActivo ? 'page' : undefined}
+                              className={`block rounded px-3 py-1 ${
+                                subActivo
+                                  ? 'bg-white font-medium text-crowe-magenta shadow-sm'
+                                  : 'text-slate-500 hover:bg-white hover:text-crowe-indigo'
+                              }`}
+                            >
+                              {sub.etiqueta}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </li>
               );
             })}

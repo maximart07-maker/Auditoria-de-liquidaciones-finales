@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  /* Fondo de la app: el degradado de la plantilla Crowe (ámbar, magenta,
+     ciruela) muy aclarado, fijo al hacer scroll. Las tarjetas y tablas
+     siguen en blanco, así que el contraste del contenido no cambia. */
+  body {
+    background-color: #faf6f8;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 0% 0%, rgb(245 168 0 / 0.24), transparent 70%),
+      radial-gradient(ellipse 55% 60% at 100% 10%, rgb(134 45 89 / 0.17), transparent 70%),
+      radial-gradient(ellipse 70% 55% at 45% 100%, rgb(228 56 106 / 0.16), transparent 70%);
+    background-attachment: fixed;
+  }
+
   :focus-visible {
     outline: 2px solid theme('colors.crowe.magenta');
     outline-offset: 2px;
