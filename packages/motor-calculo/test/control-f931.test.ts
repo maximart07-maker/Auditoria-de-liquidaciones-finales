@@ -172,17 +172,18 @@ describe('calcularControlF931', () => {
     expect(obs.empleados.map((e) => e.legajo)).toEqual(['448']);
   });
 
-  it('a los pasantes solo les calcula contribución de obra social (con FSR), ART y SCVO', () => {
+  it('a los pasantes solo les calcula contribución de obra social (con FSR) y ART, sin SCVO', () => {
     // Pasante con Rem. 10 informada, para comprobar que igual no lleva SUSS ni FAL.
     const pasante = { ...filas[2], remuneracion10: 936_729.94 };
     const r = calcularControlF931(config({ aplicaFAL: true }), [pasante]);
     const c = r.empleados[0].contribuciones;
     expect([c.CONTRIB_SIPA, c.CONTRIB_INSSJP, c.CONTRIB_FNE, c.CONTRIB_AAFF, c.CONTRIB_FAL]).toEqual([0, 0, 0, 0, 0]);
-    // 5,10 % y 0,90 % de Rem. 8; ART 2 % de Rem. 9 + 1.000; SCVO 100
+    // 5,10 % y 0,90 % de Rem. 8; ART 2 % de Rem. 9 + 1.000; sin SCVO
     expect(c.CONTRIB_OBRA_SOCIAL).toBe(47_773.23);
     expect(c.CONTRIB_FSR).toBe(8_430.57);
     expect(c.CONTRIB_ART).toBe(19_734.6);
-    expect(c.CONTRIB_SCVO).toBe(100);
+    expect(c.CONTRIB_SCVO).toBe(0);
+    expect(r.contribuciones.find((x) => x.codigo === 'CONTRIB_SCVO')!.importe).toBe(0);
   });
 
   it('al director de S.A. (049) solo le calcula obra social y FSR, ART y SCVO', () => {
