@@ -22,6 +22,8 @@ describe('modalidades de contratación', () => {
     expect(aplicaConceptoF931('CONTRIB_ART', '027')).toBe(true);
     expect(aplicaConceptoF931('CONTRIB_OBRA_SOCIAL', '099')).toBe(false);
     expect(aplicaConceptoF931('APORTE_SIPA', '008')).toBe(true);
-    expect(tratamientoModalidad('099')).toBe('Solo ART.');
+    expect(tratamientoModalidad('099')).toBe('Sin aportes. Contribuciones: solo ART y SCVO.');
+    expect(aplicaConceptoF931('CONTRIB_SCVO', '099')).toBe(true);
+    expect(aplicaConceptoF931('APORTE_OBRA_SOCIAL', '099')).toBe(false);
   });
 });

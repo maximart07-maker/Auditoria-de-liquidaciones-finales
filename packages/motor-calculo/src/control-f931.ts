@@ -368,8 +368,10 @@ const CONTRIBUCION_OS = repartirObraSocialFSR(ALICUOTA_OBRA_SOCIAL);
  */
 export const MODALIDAD_PASANTIA = '27';
 
-/** Modalidad de contratación que solo lleva ART: sin aportes ni otras contribuciones. */
-export const MODALIDAD_SOLO_ART = '99';
+/** Socios, directores o administradores (099): solo ART y SCVO, sin aportes ni otras contribuciones. */
+export const MODALIDAD_ART_Y_SCVO = '99';
+
+const CONCEPTOS_ART_Y_SCVO = ['CONTRIB_ART', 'CONTRIB_SCVO'];
 
 /** Director - Empleado de S.A. con obra social y ART: sin aportes ni contribuciones de seguridad social. */
 export const MODALIDAD_DIRECTOR_SA = '49';
@@ -390,7 +392,7 @@ const CONCEPTOS_PASANTIA = ['CONTRIB_OBRA_SOCIAL', 'CONTRIB_FSR', 'CONTRIB_ART']
 /** Si a una modalidad de contratación le corresponde un concepto (aporte o contribución). */
 export function aplicaConceptoF931(codigo: string, modalidadInformada: string): boolean {
   const modalidad = normalizarCodigoModalidad(modalidadInformada);
-  if (modalidad === MODALIDAD_SOLO_ART) return codigo === 'CONTRIB_ART';
+  if (modalidad === MODALIDAD_ART_Y_SCVO) return CONCEPTOS_ART_Y_SCVO.includes(codigo);
   if (modalidad === MODALIDAD_PASANTIA) return CONCEPTOS_PASANTIA.includes(codigo);
   if (modalidad === MODALIDAD_DIRECTOR_SA) return CONCEPTOS_DIRECTOR_SA.includes(codigo);
   return true;
@@ -433,7 +435,7 @@ const MODALIDADES_REGIMEN_GENERAL = ['1', '8', '11', '12', '21', '22'];
 export function tratamientoModalidad(codigo: string): string {
   const c = normalizarCodigoModalidad(codigo);
   if (c === MODALIDAD_PASANTIA) return 'Sin aportes. Contribuciones: obra social (con FSR) y ART, sin SCVO.';
-  if (c === MODALIDAD_SOLO_ART) return 'Solo ART.';
+  if (c === MODALIDAD_ART_Y_SCVO) return 'Sin aportes. Contribuciones: solo ART y SCVO.';
   if (c === MODALIDAD_DIRECTOR_SA) {
     return 'Aportes: solo obra social (con FSR). Contribuciones: obra social (con FSR), ART y SCVO.';
   }
@@ -617,9 +619,9 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
   );
   agregar(
     'baja',
-    'Contrato 99: solo ART',
-    `Contrato ${MODALIDAD_SOLO_ART}: solo se calcula la ART; no se le calculan aportes ni otras contribuciones aunque el reporte informe bases.`,
-    filas.filter((f) => f.modalidadContratacion === MODALIDAD_SOLO_ART),
+    'Contrato 99: solo ART y SCVO',
+    `Contrato ${MODALIDAD_ART_Y_SCVO}: solo se calculan la ART y el SCVO; no se le calculan aportes ni otras contribuciones aunque el reporte informe bases.`,
+    filas.filter((f) => f.modalidadContratacion === MODALIDAD_ART_Y_SCVO),
   );
   agregar(
     'baja',
@@ -636,7 +638,7 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
         descripcionModalidadContratacion(f.modalidadContratacion) !== null &&
         !MODALIDADES_REGIMEN_GENERAL.includes(f.modalidadContratacion) &&
         f.modalidadContratacion !== MODALIDAD_PASANTIA &&
-        f.modalidadContratacion !== MODALIDAD_SOLO_ART &&
+        f.modalidadContratacion !== MODALIDAD_ART_Y_SCVO &&
         f.modalidadContratacion !== MODALIDAD_DIRECTOR_SA,
     ),
   );
@@ -681,7 +683,7 @@ function observacionesF931(filas: FilaReporteF931[], montoDetraccionCliente: num
           f.totalDetraer === 0 &&
           f.remuneracion10 === 0 &&
           f.modalidadContratacion !== MODALIDAD_PASANTIA &&
-          f.modalidadContratacion !== MODALIDAD_SOLO_ART &&
+          f.modalidadContratacion !== MODALIDAD_ART_Y_SCVO &&
           f.modalidadContratacion !== MODALIDAD_DIRECTOR_SA,
       ),
     );

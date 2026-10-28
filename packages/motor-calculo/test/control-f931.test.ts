@@ -207,19 +207,20 @@ describe('calcularControlF931', () => {
     expect(r.modalidades[0].tratamiento).toMatch(/^Aportes: solo obra social/);
   });
 
-  it('al contrato 99 solo le calcula la ART', () => {
+  it('al contrato 99 solo le calcula la ART y el SCVO', () => {
     const director = { ...filas[0], legajo: '165', modalidadContratacion: '99', remuneracion10: 0, totalDetraer: 0, montoDetraer: 0 };
     const r = calcularControlF931(config({ aplicaFAL: true }), [director]);
     const e = r.empleados[0];
-    // ART: 2 % de Rem. 9 + 1.000 fijo; todo lo demás en cero
+    // ART: 2 % de Rem. 9 + 1.000 fijo; SCVO 100; todo lo demás en cero
     expect(e.contribuciones.CONTRIB_ART).toBe(317_200.8);
-    expect(e.totalContribuciones).toBe(317_200.8);
+    expect(e.contribuciones.CONTRIB_SCVO).toBe(100);
+    expect(e.totalContribuciones).toBe(317_300.8);
     expect(e.totalAportes).toBe(0);
     // Las bases de los conceptos que no le corresponden no suman su remuneración.
     expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_OBRA_SOCIAL')!.baseTotal).toBe(0);
     expect(r.aportes.find((c) => c.codigo === 'APORTE_INSSJP')!.baseTotal).toBe(0);
     expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_ART')!.baseTotal).toBe(15_810_040.15);
-    expect(r.observaciones.find((o) => o.titulo === 'Contrato 99: solo ART')!.empleados.map((x) => x.legajo)).toEqual(['165']);
+    expect(r.observaciones.find((o) => o.titulo === 'Contrato 99: solo ART y SCVO')!.empleados.map((x) => x.legajo)).toEqual(['165']);
   });
 
   it('resume los empleados por modalidad y marca los regímenes especiales sin reglas propias', () => {
