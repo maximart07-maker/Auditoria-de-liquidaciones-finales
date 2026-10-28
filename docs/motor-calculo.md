@@ -483,6 +483,13 @@ Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no 
 
 **Observaciones del control:** régimen especial del catálogo calculado como régimen general; código fuera del catálogo; contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
 
+### Informe para descargar (PDF y CSV)
+
+Botones **Descargar informe → PDF / CSV** en Control de Leyes, para el período que se está viendo (`GET /clientes/:clienteId/nomina-mensual/control-de-leyes/informe.pdf|csv?periodo=AAAA-MM`, `apps/api/src/nomina-mensual/informe-control-leyes.ts`). Requiere las cargas sociales del cliente configuradas. Nombre del archivo: `Control_de_Leyes_<CUIT>_<AAAA-MM>`.
+
+- **PDF** (A4, `pdfkit`): datos del cliente y de los archivos, resumen, contribuciones, aportes, cruce con Declaración en Línea (diferencias por CUIL y totales por concepto con diferencias por empleado), observaciones y empleados por modalidad. El detalle por empleado va solo en el CSV.
+- **CSV** (para Excel: `;`, coma decimal sin separador de miles, UTF-8 con BOM): las mismas secciones, una debajo de otra, más el detalle por empleado con bases, aportes y contribuciones.
+
 ### Cruce con Declaración en Línea
 
 Se importa la nómina que se descarga de Declaración en Línea (F.931 presentado) y se cruza por CUIL con el reporte del mismo período (`packages/motor-calculo/src/cruce-ddjj.ts`; API `POST|GET /clientes/:clienteId/nomina-mensual/nominas-ddjj`, y el cruce viene en `control-de-leyes`). Se guarda una `NominaDDJJ` por período (reimportar reemplaza); si el CUIT del archivo no es el del cliente, se rechaza.

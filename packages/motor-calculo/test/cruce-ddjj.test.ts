@@ -135,6 +135,7 @@ describe('cruzarConDDJJ', () => {
     expect(x.empleados[0].diferencias).toEqual([
       { grupo: 'importe', concepto: 'Contribución Obra Social', valorSistema: 51_000, valorDDJJ: 60_000, diferencia: 9_000 },
     ]);
-    expect(x.totalesImportes.find((t) => t.codigo === 'CONTRIB_OBRA_SOCIAL')!.diferencia).toBe(9_000);
+    expect(x.totalesImportes.find((t) => t.codigo === 'CONTRIB_OBRA_SOCIAL')).toMatchObject({ diferencia: 9_000, empleadosConDiferencia: 1 });
+    expect(x.totalesImportes.find((t) => t.codigo === 'CONTRIB_SIPA')!.empleadosConDiferencia).toBe(0);
   });
 });

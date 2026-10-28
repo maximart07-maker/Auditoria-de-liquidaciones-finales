@@ -241,7 +241,15 @@ export interface ResultadoCruceDDJJ {
     coberturaSCVOSinDato: boolean;
   };
   /** Diferencia total por concepto de importe (DDJJ − app), para los CUIL presentes en ambos. */
-  totalesImportes: { codigo: string; concepto: string; app: number; ddjj: number; diferencia: number }[];
+  totalesImportes: {
+    codigo: string;
+    concepto: string;
+    app: number;
+    ddjj: number;
+    diferencia: number;
+    /** Cantidad de empleados con diferencia en este concepto (0 = la diferencia del total es solo redondeo). */
+    empleadosConDiferencia: number;
+  }[];
   empleados: EmpleadoCruceDDJJ[];
 }
 
@@ -277,6 +285,7 @@ export function cruzarConDDJJ(
   const empleados: EmpleadoCruceDDJJ[] = [];
   let remuneracionTotalPorRedondeo = 0;
   let pasantesConSCVO = 0;
+  const empleadosConDiferenciaPorConcepto = new Map<string, number>();
   const totales = new Map(codigosImporte.map((c) => [c, { app: 0, ddjj: 0 }]));
 
   const cuils = [...new Set([...porCuilReporte.keys(), ...porCuilDDJJ.keys()])];
@@ -328,6 +337,9 @@ export function cruzarConDDJJ(
         const t = totales.get(codigo)!;
         t.app += app;
         t.ddjj += declarado;
+        if (Math.abs(declarado - app) > TOLERANCIA) {
+          empleadosConDiferenciaPorConcepto.set(codigo, (empleadosConDiferenciaPorConcepto.get(codigo) ?? 0) + 1);
+        }
         monto('importe', descripcionConcepto.get(codigo) ?? codigo, app, declarado);
       }
     }
@@ -376,6 +388,7 @@ export function cruzarConDDJJ(
         app: redondear(t.app),
         ddjj: redondear(t.ddjj),
         diferencia: redondear(t.ddjj - t.app),
+        empleadosConDiferencia: empleadosConDiferenciaPorConcepto.get(codigo) ?? 0,
       };
     }),
     empleados,

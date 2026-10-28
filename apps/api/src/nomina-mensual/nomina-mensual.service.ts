@@ -11,6 +11,7 @@ import {
 } from '@audit/motor-calculo';
 import { Prisma, ReporteF931Empleado } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { DatosInformeControlLeyes } from './informe-control-leyes';
 import { CargasSocialesService } from '../cargas-sociales/cargas-sociales.service';
 
 /** Los sistemas de liquidación suelen exportar en Windows-1252; si el archivo es UTF-8 válido, se usa UTF-8. */
@@ -171,6 +172,24 @@ export class NominaMensualService {
       periodos: [{ periodo: aPeriodoTexto(nomina.periodo), cantidadEmpleados: filas.size, reemplazado }],
       errores: nomina.errores,
       advertencias,
+    };
+  }
+
+  /** Informe del panel de un período, para descargar en PDF o CSV. */
+  async informeControlDeLeyes(clienteId: string, periodo: string): Promise<DatosInformeControlLeyes> {
+    const cliente = await this.asegurarCliente(clienteId);
+    const datos = await this.controlDeLeyes(clienteId, periodo);
+    if (!datos.control) {
+      throw new BadRequestException('Para emitir el informe hace falta configurar las cargas sociales del cliente.');
+    }
+    return {
+      cliente: { razonSocial: cliente.razonSocial, cuit: cliente.cuit },
+      periodo,
+      nombreArchivoReporte: datos.nombreArchivo,
+      ddjj: datos.ddjj,
+      control: datos.control,
+      cruce: datos.cruce,
+      emitido: new Date(),
     };
   }
 

@@ -25,7 +25,8 @@ function Indicador({ titulo, valor: v, alerta }: { titulo: string; valor: number
 /** Diferencias por CUIL entre el reporte del sistema (y lo calculado por la app) y la DDJJ de Declaración en Línea. */
 export function CruceDDJJPanel({ cruce, nombreArchivo, secuencia }: { cruce: CruceDDJJ; nombreArchivo: string; secuencia: string | null }) {
   const { resumen } = cruce;
-  const totalesConDiferencia = cruce.totalesImportes.filter((t) => Math.abs(t.diferencia) >= 0.01);
+  // Solo conceptos con diferencias por empleado: unos centavos en el total sin diferencias por empleado son redondeo.
+  const totalesConDiferencia = cruce.totalesImportes.filter((t) => t.empleadosConDiferencia > 0);
 
   return (
     <div className="space-y-4">

@@ -360,7 +360,14 @@ export interface CruceDDJJ {
     pasantesConSCVO: number;
     coberturaSCVOSinDato: boolean;
   };
-  totalesImportes: { codigo: string; concepto: string; app: number; ddjj: number; diferencia: number }[];
+  totalesImportes: {
+    codigo: string;
+    concepto: string;
+    app: number;
+    ddjj: number;
+    diferencia: number;
+    empleadosConDiferencia: number;
+  }[];
   empleados: { cuil: string; nombre: string; legajo: string | null; diferencias: DiferenciaDDJJ[] }[];
 }
 
@@ -476,6 +483,11 @@ export const apiClient = {
   importarNominaDDJJ: (clienteId: string, archivo: File) =>
     subirCsvNominaMensual(`/clientes/${clienteId}/nomina-mensual/nominas-ddjj`, archivo),
 };
+
+/** Dirección del informe de Control de Leyes de un período (lo descarga el navegador). */
+export function urlInformeControlDeLeyes(clienteId: string, periodo: string, formato: 'pdf' | 'csv'): string {
+  return `${API_URL}/clientes/${clienteId}/nomina-mensual/control-de-leyes/informe.${formato}?periodo=${periodo}`;
+}
 
 /** Sube un CSV del módulo Nómina mensual y devuelve el mensaje de error de la API tal cual. */
 async function subirCsvNominaMensual(ruta: string, archivo: File): Promise<ResultadoImportacionReporteF931> {
