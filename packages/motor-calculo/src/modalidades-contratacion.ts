@@ -24,7 +24,7 @@ const CATALOGO: Record<string, string> = {
   '60': 'Taller Protegido Especial para el Empleo (Ley 26.816)',
   '61': 'Actor / Intérprete (Ley 27.203) - Con obra social',
   '62': 'Actor / Intérprete (Ley 27.203) - Sin obra social',
-  '99': 'Socios, directores o administradores de sociedades - Solo riesgos del trabajo (LRT)',
+  '99': 'Socios, directores o administradores de sociedades - Sin seguridad social (solo ART y SCVO)',
   '102': 'Personal de Casas Particulares (Ley 26.844)',
   '103': 'Personal de Casas Particulares (Ley 26.844)',
 };

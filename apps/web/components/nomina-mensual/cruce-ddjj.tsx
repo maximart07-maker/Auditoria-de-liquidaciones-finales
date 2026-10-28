@@ -8,6 +8,7 @@ const GRUPO: Record<DiferenciaDDJJ['grupo'], { etiqueta: string; estilo: string 
   modalidad: { etiqueta: 'Modalidad', estilo: 'bg-amber-100 text-amber-800' },
   base: { etiqueta: 'Base', estilo: 'bg-sky-100 text-sky-800' },
   importe: { etiqueta: 'Importe', estilo: 'bg-violet-100 text-violet-800' },
+  declaracion: { etiqueta: 'Declaración', estilo: 'bg-rose-100 text-rose-800' },
 };
 
 function Indicador({ titulo, valor: v, alerta }: { titulo: string; valor: number; alerta?: boolean }) {
@@ -24,7 +25,8 @@ function Indicador({ titulo, valor: v, alerta }: { titulo: string; valor: number
 /** Diferencias por CUIL entre el reporte del sistema (y lo calculado por la app) y la DDJJ de Declaración en Línea. */
 export function CruceDDJJPanel({ cruce, nombreArchivo, secuencia }: { cruce: CruceDDJJ; nombreArchivo: string; secuencia: string | null }) {
   const { resumen } = cruce;
-  const totalesConDiferencia = cruce.totalesImportes.filter((t) => Math.abs(t.diferencia) >= 0.01);
+  // Solo conceptos con diferencias por empleado: unos centavos en el total sin diferencias por empleado son redondeo.
+  const totalesConDiferencia = cruce.totalesImportes.filter((t) => t.empleadosConDiferencia > 0);
 
   return (
     <div className="space-y-4">
@@ -45,6 +47,19 @@ export function CruceDDJJPanel({ cruce, nombreArchivo, secuencia }: { cruce: Cru
         <p className="text-xs text-slate-500">
           No se listan {resumen.remuneracionTotalPorRedondeo} diferencias de centavos en la Remuneración Total: están solo en
           los conceptos no remunerativos de la DDJJ (redondeo) y la parte remunerativa coincide.
+        </p>
+      )}
+
+      {resumen.pasantesConSCVO > 0 && (
+        <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">
+          {resumen.pasantesConSCVO === 1 ? 'Hay 1 pasante declarado' : `Hay ${resumen.pasantesConSCVO} pasantes declarados`} con
+          cobertura de SCVO en la DDJJ. La pasantía (Ley 26.427) no lleva Seguro Colectivo de Vida Obligatorio.
+        </p>
+      )}
+
+      {resumen.coberturaSCVOSinDato && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Esta nómina se importó antes del control de SCVO de pasantes: volvé a importarla para verlo.
         </p>
       )}
 

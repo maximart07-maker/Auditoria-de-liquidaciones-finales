@@ -172,32 +172,55 @@ describe('calcularControlF931', () => {
     expect(obs.empleados.map((e) => e.legajo)).toEqual(['448']);
   });
 
-  it('a los pasantes solo les calcula contribución de obra social (con FSR), ART y SCVO', () => {
+  it('a los pasantes solo les calcula contribución de obra social (con FSR) y ART, sin SCVO', () => {
     // Pasante con Rem. 10 informada, para comprobar que igual no lleva SUSS ni FAL.
     const pasante = { ...filas[2], remuneracion10: 936_729.94 };
     const r = calcularControlF931(config({ aplicaFAL: true }), [pasante]);
     const c = r.empleados[0].contribuciones;
     expect([c.CONTRIB_SIPA, c.CONTRIB_INSSJP, c.CONTRIB_FNE, c.CONTRIB_AAFF, c.CONTRIB_FAL]).toEqual([0, 0, 0, 0, 0]);
-    // 5,10 % y 0,90 % de Rem. 8; ART 2 % de Rem. 9 + 1.000; SCVO 100
+    // 5,10 % y 0,90 % de Rem. 8; ART 2 % de Rem. 9 + 1.000; sin SCVO
     expect(c.CONTRIB_OBRA_SOCIAL).toBe(47_773.23);
     expect(c.CONTRIB_FSR).toBe(8_430.57);
     expect(c.CONTRIB_ART).toBe(19_734.6);
-    expect(c.CONTRIB_SCVO).toBe(100);
+    expect(c.CONTRIB_SCVO).toBe(0);
+    expect(r.contribuciones.find((x) => x.codigo === 'CONTRIB_SCVO')!.importe).toBe(0);
   });
 
-  it('al contrato 99 solo le calcula la ART', () => {
+  it('al director de S.A. (049) solo le calcula obra social y FSR, ART y SCVO', () => {
+    const director = { ...filas[0], legajo: '700', modalidadContratacion: '049' };
+    const r = calcularControlF931(config({ aplicaFAL: true }), [director]);
+    const e = r.empleados[0];
+    expect([e.aportes.APORTE_SIPA, e.aportes.APORTE_INSSJP]).toEqual([0, 0]);
+    // 2,55 % y 0,45 % de Rem. 4 (4.691.748,47)
+    expect(e.aportes.APORTE_OBRA_SOCIAL).toBe(119_639.59);
+    expect(e.aportes.APORTE_FSR).toBe(21_112.87);
+    const c = e.contribuciones;
+    expect([c.CONTRIB_SIPA, c.CONTRIB_INSSJP, c.CONTRIB_FNE, c.CONTRIB_AAFF, c.CONTRIB_FAL]).toEqual([0, 0, 0, 0, 0]);
+    // 5,10 % y 0,90 % de Rem. 8 (15.810.040,15); ART 2 % de Rem. 9 + 1.000; SCVO 100
+    expect(c.CONTRIB_OBRA_SOCIAL).toBe(806_312.05);
+    expect(c.CONTRIB_FSR).toBe(142_290.36);
+    expect(c.CONTRIB_ART).toBe(317_200.8);
+    expect(c.CONTRIB_SCVO).toBe(100);
+    const titulos = r.observaciones.map((o) => o.titulo);
+    expect(titulos).toContain('Contrato 49: director de S.A.');
+    expect(titulos).not.toContain('Régimen especial calculado como régimen general');
+    expect(r.modalidades[0].tratamiento).toMatch(/^Aportes: solo obra social/);
+  });
+
+  it('al contrato 99 solo le calcula la ART y el SCVO', () => {
     const director = { ...filas[0], legajo: '165', modalidadContratacion: '99', remuneracion10: 0, totalDetraer: 0, montoDetraer: 0 };
     const r = calcularControlF931(config({ aplicaFAL: true }), [director]);
     const e = r.empleados[0];
-    // ART: 2 % de Rem. 9 + 1.000 fijo; todo lo demás en cero
+    // ART: 2 % de Rem. 9 + 1.000 fijo; SCVO 100; todo lo demás en cero
     expect(e.contribuciones.CONTRIB_ART).toBe(317_200.8);
-    expect(e.totalContribuciones).toBe(317_200.8);
+    expect(e.contribuciones.CONTRIB_SCVO).toBe(100);
+    expect(e.totalContribuciones).toBe(317_300.8);
     expect(e.totalAportes).toBe(0);
     // Las bases de los conceptos que no le corresponden no suman su remuneración.
     expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_OBRA_SOCIAL')!.baseTotal).toBe(0);
     expect(r.aportes.find((c) => c.codigo === 'APORTE_INSSJP')!.baseTotal).toBe(0);
     expect(r.contribuciones.find((c) => c.codigo === 'CONTRIB_ART')!.baseTotal).toBe(15_810_040.15);
-    expect(r.observaciones.find((o) => o.titulo === 'Contrato 99: solo ART')!.empleados.map((x) => x.legajo)).toEqual(['165']);
+    expect(r.observaciones.find((o) => o.titulo === 'Contrato 99: solo ART y SCVO')!.empleados.map((x) => x.legajo)).toEqual(['165']);
   });
 
   it('resume los empleados por modalidad y marca los regímenes especiales sin reglas propias', () => {

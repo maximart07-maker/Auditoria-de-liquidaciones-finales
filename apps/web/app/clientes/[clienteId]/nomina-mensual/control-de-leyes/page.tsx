@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { apiClient, ControlDeLeyes } from '@/lib/api-client';
+import { apiClient, ControlDeLeyes, urlInformeControlDeLeyes } from '@/lib/api-client';
 import { BotonVolver } from '@/components/ui/boton-volver';
 import { ImportarReporteF931 } from '@/components/nomina-mensual/importar-reporte-f931';
 import { PanelControlF931 } from '@/components/nomina-mensual/panel-control-f931';
@@ -58,23 +58,40 @@ export default async function ControlDeLeyesPage({
       </div>
 
       {reportes.length > 0 && (
-        <nav aria-label="Períodos importados" className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs uppercase tracking-wide text-slate-500">Período</span>
-          {reportes.map((r) => (
-            <Link
-              key={r.periodo}
-              href={`${base}?periodo=${r.periodo}`}
-              aria-current={r.periodo === periodo ? 'page' : undefined}
-              className={`rounded-full border px-3 py-1 capitalize ${
-                r.periodo === periodo
-                  ? 'border-crowe-indigo bg-crowe-indigo text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:border-crowe-magenta'
-              }`}
-            >
-              {nombrePeriodo(r.periodo)}
-            </Link>
-          ))}
-        </nav>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <nav aria-label="Períodos importados" className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-xs uppercase tracking-wide text-slate-500">Período</span>
+            {reportes.map((r) => (
+              <Link
+                key={r.periodo}
+                href={`${base}?periodo=${r.periodo}`}
+                aria-current={r.periodo === periodo ? 'page' : undefined}
+                className={`rounded-full border px-3 py-1 capitalize ${
+                  r.periodo === periodo
+                    ? 'border-crowe-indigo bg-crowe-indigo text-white'
+                    : 'border-slate-300 bg-white text-slate-700 hover:border-crowe-magenta'
+                }`}
+              >
+                {nombrePeriodo(r.periodo)}
+              </Link>
+            ))}
+          </nav>
+          {datos?.control && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-500">Descargar informe</span>
+              {(['pdf', 'csv'] as const).map((formato) => (
+                <a
+                  key={formato}
+                  href={urlInformeControlDeLeyes(cliente.id, datos.periodo, formato)}
+                  download
+                  className="rounded border border-crowe-indigo px-3 py-1 font-medium text-crowe-indigo hover:bg-crowe-indigo hover:text-white"
+                >
+                  {formato.toUpperCase()}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {!datos && (

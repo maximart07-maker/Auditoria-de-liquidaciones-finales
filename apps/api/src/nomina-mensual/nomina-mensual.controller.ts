@@ -1,7 +1,19 @@
-import { BadRequestException, Controller, Get, Param, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { NominaMensualService } from './nomina-mensual.service';
+import { generarCsvControlLeyes, generarPdfControlLeyes, nombreArchivoInforme } from './informe-control-leyes';
 
 const VEINTE_MB = 20 * 1024 * 1024;
 
@@ -50,9 +62,32 @@ export class NominaMensualController {
   /** `periodo` en formato AAAA-MM. */
   @Get('control-de-leyes')
   controlDeLeyes(@Param('clienteId') clienteId: string, @Query('periodo') periodo?: string) {
-    if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
-      throw new BadRequestException('Indicá el período en formato AAAA-MM (parámetro "periodo")');
-    }
-    return this.service.controlDeLeyes(clienteId, periodo);
+    return this.service.controlDeLeyes(clienteId, validarPeriodo(periodo));
   }
+
+  /** Informe del panel y del cruce para descargar: `formato` pdf o csv. */
+  @Get('control-de-leyes/informe.:formato')
+  async informe(
+    @Param('clienteId') clienteId: string,
+    @Param('formato') formato: string,
+    @Query('periodo') periodo: string | undefined,
+    @Res() res: Response,
+  ) {
+    if (formato !== 'pdf' && formato !== 'csv') throw new BadRequestException('El formato debe ser pdf o csv');
+    const datos = await this.service.informeControlDeLeyes(clienteId, validarPeriodo(periodo));
+    const contenido = formato === 'pdf' ? await generarPdfControlLeyes(datos) : generarCsvControlLeyes(datos);
+    res.set({
+      'Content-Type': formato === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${nombreArchivoInforme(datos, formato)}"`,
+      'Content-Length': String(contenido.length),
+    });
+    res.end(contenido);
+  }
+}
+
+function validarPeriodo(periodo: string | undefined): string {
+  if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
+    throw new BadRequestException('Indicá el período en formato AAAA-MM (parámetro "periodo")');
+  }
+  return periodo;
 }

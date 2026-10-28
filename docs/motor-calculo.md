@@ -477,11 +477,18 @@ El SUSS se desglosa por subsistema (`DESGLOSE_CONTRIBUCIONES_SUSS`, Decreto 814/
 
 Rem. 3 no se usa en ningún cálculo: si viene en el reporte se guarda, pero no se muestra en el panel, y el reporte se importa aunque no la traiga.
 
-**Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) no se les calculan aportes y de las contribuciones solo llevan obra social (con su parte FSR), ART y SCVO; al contrato 99 solo se le calcula la ART (porcentaje y cuota fija), sin aportes ni otras contribuciones. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
+**Modalidades de contratación especiales** (`aplicaConceptoF931`): a los pasantes (contrato 27) no se les calculan aportes y de las contribuciones solo llevan obra social (con su parte FSR) y ART, sin SCVO (la pasantía de la Ley 26.427 no es relación de dependencia); al contrato 99 (socios, directores o administradores) solo se le calculan la ART (porcentaje y cuota fija) y el SCVO, sin aportes ni otras contribuciones. Al director de S.A. (049) no se le calculan aportes ni contribuciones SIPA, INSSJP, FNE, AAFF ni FAL: solo aporte y contribución de obra social (con FSR), ART y SCVO, como lo liquida ARCA. La base imponible de cada concepto suma solo a los empleados a los que se les calcula.
 
-**Modalidades de contratación** (`packages/motor-calculo/src/modalidades-contratacion.ts`): el código se lee sin ceros a la izquierda (`027` = `27`) y se describe con el catálogo de códigos de ARCA del estudio (rango 601 a 614: programas de incentivo). El panel muestra los empleados por modalidad y qué se le calcula a cada una. Solo 27 y 99 tienen reglas propias; el resto se calcula como régimen general.
+**Modalidades de contratación** (`packages/motor-calculo/src/modalidades-contratacion.ts`): el código se lee sin ceros a la izquierda (`027` = `27`) y se describe con el catálogo de códigos de ARCA del estudio (rango 601 a 614: programas de incentivo). El panel muestra los empleados por modalidad y qué se le calcula a cada una. Solo 27, 49 y 99 tienen reglas propias; el resto se calcula como régimen general.
 
-**Observaciones del control:** régimen especial del catálogo calculado como régimen general; código fuera del catálogo; contrato 99 con solo ART; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
+**Observaciones del control:** régimen especial del catálogo calculado como régimen general; código fuera del catálogo; contrato 99 con solo ART y SCVO; pasantes (contrato 27) con su régimen de pasantías; Rem. 10 ≠ Rem. 2 − total a detraer; total a detraer ≠ monto + monto SAC; detracción mayor que Rem. 2; detracción distinta a la configurada para el cliente (puede ser proporcional: revisar); empleados sin detracción con Rem. 10 en cero (salvo pasantes y contrato 99).
+
+### Informe para descargar (PDF y CSV)
+
+Botones **Descargar informe → PDF / CSV** en Control de Leyes, para el período que se está viendo (`GET /clientes/:clienteId/nomina-mensual/control-de-leyes/informe.pdf|csv?periodo=AAAA-MM`, `apps/api/src/nomina-mensual/informe-control-leyes.ts`). Requiere las cargas sociales del cliente configuradas. Nombre del archivo: `Control_de_Leyes_<CUIT>_<AAAA-MM>`.
+
+- **PDF** (A4, `pdfkit`): datos del cliente y de los archivos, resumen, contribuciones, aportes, cruce con Declaración en Línea (diferencias por CUIL y totales por concepto con diferencias por empleado), observaciones y empleados por modalidad. El detalle por empleado va solo en el CSV.
+- **CSV** (para Excel: `;`, coma decimal sin separador de miles, UTF-8 con BOM): las mismas secciones, una debajo de otra, más el detalle por empleado con bases, aportes y contribuciones.
 
 ### Cruce con Declaración en Línea
 
@@ -497,5 +504,6 @@ Se importa la nómina que se descarga de Declaración en Línea (F.931 presentad
 | Modalidad | `Contrato` del reporte | `Modalidad de Contrato` |
 | Base | Remuneración Total, Rem. 1, 2, 4, 5, 8, 9, 10 y total a detraer del reporte | mismas columnas e `Importe a detraer` |
 | Importe | aportes y contribuciones calculados por la app | Contribución Previsional / PAMI / Fondo Nac. de Empleo / Asig. Familiares / OS / ANSSAL; Aporte Previsional / PAMI / OS / ANSSAL |
+| Declaración | — | `Con Cobertura S.C.V.O.?` = Si en un pasante (027): la pasantía no lleva SCVO |
 
-Las diferencias de Remuneración Total de menos de $1 que están solo en los conceptos no remunerativos de la DDJJ (la parte remunerativa coincide con Rem. 2) se cuentan como redondeo y no se listan.
+Las diferencias de Remuneración Total de menos de $1 que están solo en los conceptos no remunerativos de la DDJJ (la parte remunerativa coincide con Rem. 2) se cuentan como redondeo y no se listan. Las nóminas importadas antes del control de SCVO no traen esa columna guardada: el panel pide reimportarlas.

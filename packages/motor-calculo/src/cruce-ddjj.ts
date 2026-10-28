@@ -11,7 +11,7 @@
  *    contribuciones.
  */
 
-import { BaseF931, FilaReporteF931, parsearMontoArgentino, ResultadoControlF931 } from './control-f931';
+import { BaseF931, FilaReporteF931, MODALIDAD_PASANTIA, parsearMontoArgentino, ResultadoControlF931 } from './control-f931';
 import { descripcionModalidadContratacion, normalizarCodigoModalidad } from './modalidades-contratacion';
 
 export interface FilaNominaDDJJ {
@@ -22,6 +22,11 @@ export interface FilaNominaDDJJ {
   condicion: string;
   actividad: string;
   obraSocial: string;
+  /**
+   * Columna "Con Cobertura S.C.V.O.?" (Si / No). null si el archivo no la trae; puede faltar
+   * (undefined) en nóminas importadas antes de que se leyera esta columna.
+   */
+  coberturaSCVO?: boolean | null;
   diasTrabajados: number;
   remuneracionTotal: number;
   remuneracion1: number;
@@ -66,7 +71,15 @@ function clave(texto: string): string {
 
 type CampoNumerico = Exclude<
   keyof FilaNominaDDJJ,
-  'cuil' | 'nombre' | 'modalidadContratacion' | 'situacion' | 'condicion' | 'actividad' | 'obraSocial' | 'importes'
+  | 'cuil'
+  | 'nombre'
+  | 'modalidadContratacion'
+  | 'situacion'
+  | 'condicion'
+  | 'actividad'
+  | 'obraSocial'
+  | 'coberturaSCVO'
+  | 'importes'
 >;
 
 const COLUMNAS_TEXTO: [string, 'nombre' | 'modalidadContratacion' | 'situacion' | 'condicion' | 'actividad' | 'obraSocial'][] = [
@@ -154,6 +167,9 @@ export function parsearNominaDDJJ(texto: string): NominaDDJJ {
     const fila = { cuil, importes: {} } as FilaNominaDDJJ;
     for (const [t, campo] of COLUMNAS_TEXTO) fila[campo] = celda(t);
     fila.modalidadContratacion = normalizarCodigoModalidad(fila.modalidadContratacion);
+    // Columna opcional: si no está, no se controla la cobertura de SCVO.
+    const textoSCVO = posicion('Con Cobertura S.C.V.O.?') >= 0 ? clave(celda('Con Cobertura S.C.V.O.?')) : '';
+    fila.coberturaSCVO = textoSCVO === 'si' ? true : textoSCVO === 'no' ? false : null;
 
     let valida = true;
     const leerMonto = (t: string): number => {
@@ -184,7 +200,8 @@ export function parsearNominaDDJJ(texto: string): NominaDDJJ {
 // Cruce por CUIL
 // ---------------------------------------------------------------------------
 
-export type GrupoDiferenciaDDJJ = 'presencia' | 'modalidad' | 'base' | 'importe';
+/** `declaracion`: un dato declarado que no corresponde a la modalidad (p.ej. SCVO a un pasante). */
+export type GrupoDiferenciaDDJJ = 'presencia' | 'modalidad' | 'base' | 'importe' | 'declaracion';
 
 export interface DiferenciaDDJJ {
   grupo: GrupoDiferenciaDDJJ;
@@ -218,9 +235,21 @@ export interface ResultadoCruceDDJJ {
      * remunerativos (centavos de redondeo de la DDJJ): no se listan como diferencia.
      */
     remuneracionTotalPorRedondeo: number;
+    /** Pasantes (027 en la DDJJ) declarados con cobertura de SCVO. */
+    pasantesConSCVO: number;
+    /** La nómina guardada no trae la cobertura de SCVO (se importó antes de este control): hay que reimportarla. */
+    coberturaSCVOSinDato: boolean;
   };
   /** Diferencia total por concepto de importe (DDJJ − app), para los CUIL presentes en ambos. */
-  totalesImportes: { codigo: string; concepto: string; app: number; ddjj: number; diferencia: number }[];
+  totalesImportes: {
+    codigo: string;
+    concepto: string;
+    app: number;
+    ddjj: number;
+    diferencia: number;
+    /** Cantidad de empleados con diferencia en este concepto (0 = la diferencia del total es solo redondeo). */
+    empleadosConDiferencia: number;
+  }[];
   empleados: EmpleadoCruceDDJJ[];
 }
 
@@ -255,6 +284,8 @@ export function cruzarConDDJJ(
 
   const empleados: EmpleadoCruceDDJJ[] = [];
   let remuneracionTotalPorRedondeo = 0;
+  let pasantesConSCVO = 0;
+  const empleadosConDiferenciaPorConcepto = new Map<string, number>();
   const totales = new Map(codigosImporte.map((c) => [c, { app: 0, ddjj: 0 }]));
 
   const cuils = [...new Set([...porCuilReporte.keys(), ...porCuilDDJJ.keys()])];
@@ -306,8 +337,24 @@ export function cruzarConDDJJ(
         const t = totales.get(codigo)!;
         t.app += app;
         t.ddjj += declarado;
+        if (Math.abs(declarado - app) > TOLERANCIA) {
+          empleadosConDiferenciaPorConcepto.set(codigo, (empleadosConDiferenciaPorConcepto.get(codigo) ?? 0) + 1);
+        }
         monto('importe', descripcionConcepto.get(codigo) ?? codigo, app, declarado);
       }
+    }
+
+    // La pasantía (Ley 26.427) no es relación de dependencia: no lleva SCVO.
+    if (d && d.modalidadContratacion === MODALIDAD_PASANTIA && d.coberturaSCVO === true) {
+      pasantesConSCVO++;
+      diferencias.push({
+        grupo: 'declaracion',
+        concepto: 'Cobertura SCVO declarada a un pasante',
+        valorSistema: 'No corresponde',
+        valorDDJJ: 'Si',
+        diferencia: null,
+        detalle: 'La pasantía (Ley 26.427) no es relación de dependencia y no lleva Seguro Colectivo de Vida Obligatorio.',
+      });
     }
 
     if (diferencias.length > 0) {
@@ -330,6 +377,8 @@ export function cruzarConDDJJ(
       soloEnReporte,
       soloEnDDJJ,
       remuneracionTotalPorRedondeo,
+      pasantesConSCVO,
+      coberturaSCVOSinDato: ddjj.some((f) => f.coberturaSCVO === undefined),
     },
     totalesImportes: codigosImporte.map((codigo) => {
       const t = totales.get(codigo)!;
@@ -339,6 +388,7 @@ export function cruzarConDDJJ(
         app: redondear(t.app),
         ddjj: redondear(t.ddjj),
         diferencia: redondear(t.ddjj - t.app),
+        empleadosConDiferencia: empleadosConDiferenciaPorConcepto.get(codigo) ?? 0,
       };
     }),
     empleados,

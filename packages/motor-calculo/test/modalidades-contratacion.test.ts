@@ -13,7 +13,9 @@ describe('modalidades de contratación', () => {
     expect(descripcionModalidadContratacion('008')).toBe('A tiempo completo - Indeterminado / Permanente');
     expect(descripcionModalidadContratacion('27')).toMatch(/Pasantías educativas/);
     expect(descripcionModalidadContratacion('605')).toMatch(/incentivo o formalización/);
-    expect(descripcionModalidadContratacion('099')).toMatch(/Solo riesgos del trabajo/);
+    expect(descripcionModalidadContratacion('099')).toBe(
+      'Socios, directores o administradores de sociedades - Sin seguridad social (solo ART y SCVO)',
+    );
     expect(descripcionModalidadContratacion('777')).toBeNull();
   });
 
@@ -22,6 +24,8 @@ describe('modalidades de contratación', () => {
     expect(aplicaConceptoF931('CONTRIB_ART', '027')).toBe(true);
     expect(aplicaConceptoF931('CONTRIB_OBRA_SOCIAL', '099')).toBe(false);
     expect(aplicaConceptoF931('APORTE_SIPA', '008')).toBe(true);
-    expect(tratamientoModalidad('099')).toBe('Solo ART.');
+    expect(tratamientoModalidad('099')).toBe('Sin aportes. Contribuciones: solo ART y SCVO.');
+    expect(aplicaConceptoF931('CONTRIB_SCVO', '099')).toBe(true);
+    expect(aplicaConceptoF931('APORTE_OBRA_SOCIAL', '099')).toBe(false);
   });
 });
