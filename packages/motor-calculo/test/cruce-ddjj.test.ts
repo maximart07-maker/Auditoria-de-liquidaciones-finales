@@ -100,6 +100,35 @@ describe('cruzarConDDJJ', () => {
     expect(x.empleados.find((e) => e.cuil === '20444444444')!.diferencias[0].detalle).toMatch(/^Situación de revista 1/);
   });
 
+  it('marca a los pasantes declarados con cobertura de SCVO', () => {
+    const pasante = { ...filaReporte('20555555555', 'Díaz, Laura', '5', '27') };
+    const control27 = calcularControlF931(pyme, [pasante]);
+    const conSCVO = renglon('20555555555', 'LAURA DIAZ', '027');
+    const sinSCVO = conSCVO.replace(';No;Si;', ';No;No;');
+    expect(parsearNominaDDJJ(archivo([conSCVO])).filas[0].coberturaSCVO).toBe(true);
+    expect(parsearNominaDDJJ(archivo([sinSCVO])).filas[0].coberturaSCVO).toBe(false);
+
+    const x = cruzarConDDJJ([pasante], control27, parsearNominaDDJJ(archivo([conSCVO])).filas);
+    const scvo = x.empleados[0].diferencias.find((d) => d.grupo === 'declaracion')!;
+    expect(scvo).toMatchObject({ concepto: 'Cobertura SCVO declarada a un pasante', valorSistema: 'No corresponde', valorDDJJ: 'Si' });
+    expect(x.resumen.pasantesConSCVO).toBe(1);
+    expect(x.resumen.coberturaSCVOSinDato).toBe(false);
+
+    const y = cruzarConDDJJ([pasante], control27, parsearNominaDDJJ(archivo([sinSCVO])).filas);
+    expect(y.empleados.flatMap((e) => e.diferencias).some((d) => d.grupo === 'declaracion')).toBe(false);
+    expect(y.resumen.pasantesConSCVO).toBe(0);
+
+    // Un empleado común con SCVO no se marca.
+    const comun = cruzarConDDJJ([reporte[0]], calcularControlF931(pyme, [reporte[0]]), parsearNominaDDJJ(archivo([renglon('20111111111', 'JUAN PEREZ', '8')])).filas);
+    expect(comun.resumen.pasantesConSCVO).toBe(0);
+  });
+
+  it('avisa si la nómina guardada no trae la cobertura de SCVO (importada antes de este control)', () => {
+    const vieja = parsearNominaDDJJ(archivo([renglon('20111111111', 'JUAN PEREZ', '8')])).filas.map(({ coberturaSCVO: _c, ...resto }) => resto);
+    const x = cruzarConDDJJ([reporte[0]], calcularControlF931(pyme, [reporte[0]]), vieja);
+    expect(x.resumen.coberturaSCVOSinDato).toBe(true);
+  });
+
   it('compara los importes calculados por la app contra los de ARCA', () => {
     const conOS = renglon('20111111111', 'JUAN PEREZ', '8').replace(/;51\.000;25\.500$/, ';60.000;25.500');
     const x = cruzarConDDJJ([reporte[0]], calcularControlF931(pyme, [reporte[0]]), parsearNominaDDJJ(archivo([conOS])).filas);

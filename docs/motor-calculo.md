@@ -497,5 +497,6 @@ Se importa la nómina que se descarga de Declaración en Línea (F.931 presentad
 | Modalidad | `Contrato` del reporte | `Modalidad de Contrato` |
 | Base | Remuneración Total, Rem. 1, 2, 4, 5, 8, 9, 10 y total a detraer del reporte | mismas columnas e `Importe a detraer` |
 | Importe | aportes y contribuciones calculados por la app | Contribución Previsional / PAMI / Fondo Nac. de Empleo / Asig. Familiares / OS / ANSSAL; Aporte Previsional / PAMI / OS / ANSSAL |
+| Declaración | — | `Con Cobertura S.C.V.O.?` = Si en un pasante (027): la pasantía no lleva SCVO |
 
-Las diferencias de Remuneración Total de menos de $1 que están solo en los conceptos no remunerativos de la DDJJ (la parte remunerativa coincide con Rem. 2) se cuentan como redondeo y no se listan.
+Las diferencias de Remuneración Total de menos de $1 que están solo en los conceptos no remunerativos de la DDJJ (la parte remunerativa coincide con Rem. 2) se cuentan como redondeo y no se listan. Las nóminas importadas antes del control de SCVO no traen esa columna guardada: el panel pide reimportarlas.

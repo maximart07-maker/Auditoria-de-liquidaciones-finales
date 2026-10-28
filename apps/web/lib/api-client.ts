@@ -340,7 +340,7 @@ export interface ControlF931 {
 }
 
 export interface DiferenciaDDJJ {
-  grupo: 'presencia' | 'modalidad' | 'base' | 'importe';
+  grupo: 'presencia' | 'modalidad' | 'base' | 'importe' | 'declaracion';
   concepto: string;
   valorSistema: number | string | null;
   valorDDJJ: number | string | null;
@@ -357,6 +357,8 @@ export interface CruceDDJJ {
     soloEnReporte: number;
     soloEnDDJJ: number;
     remuneracionTotalPorRedondeo: number;
+    pasantesConSCVO: number;
+    coberturaSCVOSinDato: boolean;
   };
   totalesImportes: { codigo: string; concepto: string; app: number; ddjj: number; diferencia: number }[];
   empleados: { cuil: string; nombre: string; legajo: string | null; diferencias: DiferenciaDDJJ[] }[];
