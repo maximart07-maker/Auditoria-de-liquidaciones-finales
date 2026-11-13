@@ -1,4 +1,4 @@
-# Auditoría Control de Nómina — guía para Claude
+# Control de Nómina — guía para Claude
 
 App del estudio para auditar nómina y liquidaciones de sueldos bajo legislación argentina. Monorepo:
 

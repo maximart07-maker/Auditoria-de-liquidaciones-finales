@@ -291,7 +291,7 @@ export function generarPdfControlLeyes(d: DatosInformeControlLeyes): Promise<Buf
     size: 'A4',
     margins: { top: 40, bottom: 40, left: 40, right: 40 },
     bufferPages: true,
-    info: { Title: `Control de Leyes ${nombrePeriodo(d.periodo)} - ${d.cliente.razonSocial}`, Author: 'Auditoría Control de Nómina' },
+    info: { Title: `Control de Leyes ${nombrePeriodo(d.periodo)} - ${d.cliente.razonSocial}`, Author: 'Control de Nómina' },
   });
   const partes: Buffer[] = [];
   doc.on('data', (p: Buffer) => partes.push(p));
@@ -306,7 +306,7 @@ export function generarPdfControlLeyes(d: DatosInformeControlLeyes): Promise<Buf
   doc.rect(0, 0, ancho, 70).fill(COLOR.indigo);
   doc.rect(0, 70, ancho, 3).fill(COLOR.magenta);
   doc.font('Helvetica-Bold').fontSize(16).fillColor('#ffffff').text('Informe de Control de Leyes', 40, 22);
-  doc.font('Helvetica').fontSize(9).fillColor('#ffffff').text('Conceptos de seguridad social del F.931 · Auditoría Control de Nómina', 40, 44);
+  doc.font('Helvetica').fontSize(9).fillColor('#ffffff').text('Conceptos de seguridad social del F.931 · Control de Nómina', 40, 44);
   doc.y = 90;
 
   parrafo(doc, d.cliente.razonSocial, { negrita: true, tamano: 12, color: COLOR.indigo });
